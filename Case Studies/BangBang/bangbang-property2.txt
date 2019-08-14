@@ -1,0 +1,149 @@
+//PrCCSL specification of bang bang boiler system
+//behaviors of Control
+
+ //functions
+```C
+int his_On=5;
+
+int refTemp=20;
+const int OFF=0;
+const int ON=1;
+const int GREEN = 2;
+const int RED=1;
+int boiler_off=1, boiler_on=0;
+
+double digiTemp=10.0;
+double dis_temp=10.0;
+double actTempRate=-0.012;
+int LED;
+int boiler;
+int color;
+
+void flash_LED(){
+if(LED==OFF){
+LED=color;
+}
+else {
+LED=OFF;
+}
+}
+
+bool iscold(){
+return ceil(actTemp)<=refTemp;
+}
+
+void turn_boiler(int mode){
+ if(mode==1){
+ color=GREEN;
+}
+ else{
+ color=RED;
+}
+ LED=color;
+ boiler=mode;
+}
+
+bool on_ini=1, in_high=0, in_norm=0;
+bool is_ini=true;
+```;
+Clock nc:Never;
+Clock ac:Always;
+Clock sec:IdealClock;
+
+Clock turnOff, turnOn, exit_Off, exit_On, exitNorm;
+//transitions
+
+Clock iniClk;
+iniClk is if is_ini then ac else nc;
+iniClk action {is_ini=0};
+
+DenseClockType ActTemp{
+reference idealClk,
+factor actTempRate,
+offset {(iniClk, 10.0)},
+reset  {}	
+}; 
+Clock actTemp:ActTemp;
+
+
+DenseClockType OFFT{
+reference idealClk,
+factor boiler_off,
+offset {},
+reset  {turnOff}
+};
+Clock offT: OFFT;
+
+DenseClockType ONT{
+reference idealClk,
+factor boiler_on,
+offset {},
+reset  {turnOn}		
+};
+
+Clock onT:ONT;
+
+
+
+turnOn is if boiler_off&&offT>=40&&iscold()==true then ac else nc; //guard
+turnOn action {in_flash=0, off_ini=1, turn_boiler(ON), boiler_off=0, boiler_on=1, actTempRate=0.04};
+
+Clock on2off1, on2off2;
+on2off1 is if true then exitNorm else nc;
+//on2off2 is turnOn delayFor [ 20, 20 ] on sec;
+on2off2 is if boiler_on&&onT>=20 then ac else nc;
+turnOff is on2off1 clockUnion on2off2;
+turnOff action {off_ini=0, in_flash=1, flash_LED(), turn_boiler(OFF), boiler_off=1, boiler_on=0, actTempRate=-0.012};
+
+//behavior of Off 
+
+```C
+int off_ini=1, in_flash;
+```;
+
+Clock flash;
+
+DenseClockType FlashT{
+reference idealClk,
+factor    in_flash,
+offset    {},
+reset     {turnOff, flash}	
+};
+
+
+Clock flashT:FlashT;
+flash is periodicOn flashT period 5;
+flash action {flash_LED()};
+
+Clock high2ini, high2norm;
+Clock ini2high;
+
+ini2high is if on_ini==1 then turnOn else nc;
+ini2high action {on_ini=0, in_high=1};
+
+high2ini is if in_high==1 then turnOff else nc;
+high2ini action {in_high=0, on_ini=1};
+
+high2norm is if in_high==1&&!iscold() then ac else nc;
+high2norm action {in_high=0, in_norm=1};
+
+exitNorm is if in_norm==1 then ac else nc;
+exitNorm action {on_ini=1, in_norm=0}; 
+  
+// Clock flash, turnOn, turnOff;
+
+DenseClockType energy{
+reference idealClk,
+factor    4.5*boiler_on,
+offset    {(flash, 5.0), (turnOn, 12.0), (turnOff, 9.0)},
+reset     {}
+};
+Clock boiler_energy: energy; 
+
+
+
+
+
+
+
+

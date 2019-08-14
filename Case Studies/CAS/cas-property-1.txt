@@ -1,0 +1,1447 @@
+
+//PrCCSL Specification of CAS
+
+//Behavior of EnvSpeedPosDir
+```C 
+int env_sign;
+int cnt;
+const int power = 10;
+const int para = 955;
+
+const int N = 2;
+int env_gear[N]={2,2}, env_torq[N]={56,56}, env_dir[N]={2,2};
+int leftReq[N], rightReq[N];
+int VEL[N]={7,7},PX[N]={500, 0},PY[N]={0, 0},Dir[N]={2,2}, B[N]; //initial running direction: positive x-axis
+int role[N]={0, 1};
+int catupAcc[N];
+
+int sen_posx[N], sen_posy[N],sen_dir[N]={2,2};
+int sen_vel[N]={7, 7};
+int SR_ST;
+int conLeft[N], conRight[N];
+int acGear[N]={2, 2}, acTorq[N]={56, 56}, acBrake[N], acDir[N]={2, 2}, acLeft[N], acRight[N];
+int turnx[N], turny[N], turnCmd[N];
+int turnfinl[N];
+int sign;
+int posx[N], posy[N];
+int adist[N];
+int conDir[N]={2,2};
+int vel[N]={7, 7};
+int dflag[N];
+//int his[N];
+int avel[N]={7, 7}, aPosX[N],aPosY[N],aDir[N]={2,2}, abrake[N], aleft[N], aright[N];
+int finTurn[N];
+int eFinTurn[N];
+int reqT[N] = {56, 56}, reqG[N] = {2, 2}, brake[N], ACK[N];
+int InStatic[N];
+int entrySpeed[N];
+int torq[N]={56,56},gear[N]={2,2};
+int entryGear[N]; 
+int ST, min=10, max=23;
+int safeadist=300;
+int maxadist=1000;
+int cnt1;
+
+int checkDis(int vid){
+  int dflag;
+  int difx=posx[vid]-aPosX[vid];
+  int dify=posy[vid]-aPosY[vid];
+
+  if(difx < 0)  difx = 0-difx;
+  if(dify < 0)  dify = 0-dify;
+  adist[vid]=difx+dify;
+  if(vel[vid]<=10)
+    safeadist=20+vel[vid]*10;
+  else if(vel[vid]>20&&vel[vid]<=27)
+    safeadist=450;
+  else if(vel[vid]>10&&vel[vid]<=20)
+   safeadist=200;
+  else if(vel[vid]>27)
+    safeadist=500;
+ 
+  if(adist[vid]<safeadist)
+    dflag=1;
+  else if(adist[vid]>maxadist)
+    dflag=2;
+  else
+    dflag=0;
+  if(adist[vid]== 0)
+    dflag = 0;
+
+  if(difx < 0)  dflag=1;
+  if(dify < 0)  dflag=1;
+  return dflag;
+}
+
+int pseudo_id[N];
+int mtxt[N-1][9];
+int vmtxt[N-1][10];
+int pid[N];
+
+```;
+
+Clock envTrig;
+Clock tu: IdealClock;
+Clock ac: Always;
+Clock nc: Never;
+envTrig is periodicOn tu period 1;
+envTrig action {cnt++, updatePos(), updateSpeed(), updateDir()};
+
+```C
+
+int v_id;
+
+void updatePos(){
+role[0]=0;
+if(cnt%10==0){
+for(v_id=0;v_id<N;v_id++){
+if(PX[v_id]<=-30000||PY[v_id]<=-30000||PX[v_id]>=30000||PY[v_id]>=30000){
+  if(Dir[v_id]==2){
+  PX[0]=500;
+  PX[1]=0;
+  PY[0]=0;
+  PY[1]=0;}
+ if(Dir[v_id]==4){
+  PX[0]=500;
+  PX[1]=0;
+
+  PY[0]=0;
+  PY[1]=0;
+
+}
+
+else if(Dir[v_id]==1){
+  PY[0]=500;
+  PY[1]=0;
+
+  PX[0]=0;
+  PX[1]=0;
+
+  }
+else if(Dir[v_id]==3){
+  PY[0]=0;
+  PY[1]=500;
+
+  PX[0]=0;
+  PX[1]=0;
+}
+ 
+}
+
+if(catupAcc[v_id]==0){
+if(Dir[v_id]==1){
+  PX[v_id] = PX[v_id];
+  PY[v_id] = PY[v_id] + VEL[v_id];
+ }
+ else if(Dir[v_id]==2){
+  PX[v_id] = PX[v_id]+VEL[v_id];
+  PY[v_id] = PY[v_id];
+ }
+ else if(Dir[v_id]==3){
+  PX[v_id] = PX[v_id];
+  PY[v_id] = PY[v_id]-VEL[v_id];
+ }
+ else if(Dir[v_id]==4){
+  PX[v_id] = PX[v_id]-VEL[v_id];
+  PY[v_id] = PY[v_id];
+}
+}
+else if(catupAcc[v_id]==1){
+if(Dir[v_id]==1){
+  PX[v_id] = PX[v_id];
+  PY[v_id] = PY[v_id] + 40;
+ }
+ else if(Dir[v_id]==2){
+  PX[v_id] = PX[v_id]+40;
+  PY[v_id] = PY[v_id];
+ }
+ else if(Dir[v_id]==3){
+  PX[v_id] = PX[v_id];
+  PY[v_id] = PY[v_id]-40;
+ }
+ else if(Dir[v_id]==4){
+  PX[v_id] = PX[v_id]-40;
+  PY[v_id] = PY[v_id];
+}
+}
+}
+
+if(cnt>=10000){
+cnt=0;
+}
+}
+}
+
+
+int g;
+int tempTorque;
+int tmp;
+int rev;
+int speed;
+
+int divide(int a, int b)
+{
+int remain = a;
+int res = 0;
+while(remain>=b){
+remain = remain - b;
+res = res + 1;
+}
+return res;
+}
+
+int speedCal(int torqueSetValue, int gearSet){
+//initially the wheelSpeed value is 0
+if(gearSet > 5)
+  g = 5; 
+else 
+  g = gearSet;
+if (torqueSetValue > 400)
+   tempTorque = 400;
+else if (torqueSetValue < 24)
+   tempTorque = 24;
+else tempTorque = torqueSetValue;
+
+//calculate the rotate speed
+tmp = (para*power);
+rev = divide(tmp, tempTorque);
+
+//update the speed 
+// the rotate speed should be reduced by 10 
+  if(g == 1){
+    if (rev <= 75) {
+      speed = 1;
+    } else if (rev <= 100) {
+      speed = 2;
+    } else if (rev <= 150) {
+      speed = 3;
+    } else if ((rev <= 200) && (rev > 150)) {
+      speed = 4;
+    } else if ((rev <= 250) && (rev > 200)) {
+      speed = 5;
+    } else if ((rev <= 300) && (rev > 250)) {
+      speed = 7;
+    } else if ((rev <= 350) && (rev > 300)) {
+      speed = 8;
+    } else if ((rev <= 400) && (rev < 350)) {
+        speed = 9;
+      }
+  } else if (g == 2) {
+    if (rev <= 75) {
+      speed = 3;
+    } else if (rev>75&&rev <= 100) {
+      speed = 4;
+    }else if (rev>100&&rev <= 125) {
+      speed = 5;
+    }else if (rev>125&&rev <= 150) {
+      speed = 6;
+    } else if ((rev <= 200) && (rev > 150)) {
+      speed = 7;
+    } else if ((rev <= 250) && (rev > 200)) {
+      speed = 8;
+    } else if ((rev <= 275) && (rev > 250)) {
+      speed = 10;
+     }else if ((rev <= 300) && (rev > 275)) {
+      speed = 11;
+    }else if ((rev <= 325) && (rev > 300)) {
+      speed = 12;
+    }  else if ((rev <= 350) && (rev > 325)) {
+      speed = 13;
+    } else if ((rev <= 375) && (rev > 350)) {
+      speed = 14;
+    } else if ((rev <= 400) && (rev > 375)) {
+        speed = 15;
+      }
+  } else if (g == 3) {
+    if (rev <= 75) {
+      speed = 4;
+    } else if (rev>75&&rev <= 87) {
+      speed = 5;
+    }else if (rev>87&&rev <= 100) {
+      speed = 6;
+    } else if (rev >100&&rev<=116) {
+      speed = 7;
+    }else if (rev>116&&rev < 133) {
+      speed = 8;
+    }else if (rev>133&&rev <= 150) {
+      speed = 9;
+    }else if ((rev <= 200) && (rev >= 150)) {
+      speed = 10;
+    } else if (rev>200&&rev <= 225) {
+      speed = 6;
+    }else if ((rev <= 250) && (rev > 225)) {
+      speed = 12;
+    }else if (rev>250&&rev <= 260) {
+      speed = 13;
+    }else if (rev>260&&rev <= 270) {
+      speed = 14;
+    }else if (rev>270&&rev <= 280) {
+      speed = 15;
+    }else if (rev>280&&rev <= 290) {
+      speed = 16;
+    }else if (rev <= 300 &&rev > 290) {
+      speed = 17;
+    }else if (rev <= 316 && rev>300) {
+        speed = 18;
+    }else if (rev <= 333 && rev>316) {
+        speed = 19;
+    }else if (rev <= 350 && rev > 333) {
+      speed = 20;
+    } else if (rev <= 366 && rev > 350) {
+      speed = 21;
+    } else if (rev <= 383 && rev>366) {
+        speed = 22;
+    }else if (rev <= 400 && rev>383) {
+        speed = 23;
+    }  
+    }
+   else if (g == 4) {
+      if (rev <= 75) {
+        speed = 6;
+      } else if ((rev <= 87) && (rev > 75)) {
+        speed = 7;
+      } else if ((rev <= 100) && (rev > 87)) {
+        speed = 8;
+      } else if (rev <= 112&&rev >100) {
+        speed = 9;
+      } else if (rev <= 125&&rev >112) {
+        speed = 10;
+      }else if (rev <= 137&&rev >125) {
+        speed = 11;
+      }else if (rev <= 150&&rev >137) {
+        speed = 12;
+      }else if (rev <= 175 && rev >150) {
+        speed = 13;
+      } else if (rev <= 200 && rev > 175) {
+        speed = 14;
+      } else if ((rev <= 225) && (rev > 200)) {
+        speed = 15;
+      }else if ((rev <= 250) && (rev > 225)) {
+        speed = 16;
+      } else if ((rev <= 262) && (rev > 250)) {
+        speed = 18;
+      }else if ((rev <= 275) && (rev > 262)) {
+        speed = 20;
+      }else if ((rev <= 287) && (rev > 275)) {
+        speed = 22;
+      } else if ((rev <= 300) && (rev > 287)) {
+        speed = 24;
+      }else if ((rev <= 316) && (rev > 300)) {
+        speed = 25;
+      }else if ((rev <= 333) && (rev > 316)) {
+        speed = 26;
+      }else if ((rev <= 350) && (rev > 333)) {
+        speed = 27;
+      }else if ((rev <= 400) && (rev > 387)) {
+          speed = 31;
+        }
+    }
+ else {
+    if (g == 5) {
+      if (rev <= 75) {
+        speed = 8;
+      } else if ((rev <= 87) && (rev > 75)) {
+        speed = 9;
+      }else if ((rev <= 100) && (rev > 87)) {
+        speed = 10;
+      } else if ((rev <= 150) && (rev > 100)) {
+        speed = 16;
+      } else if ((rev <= 175) && (rev > 150)) {
+        speed = 17;
+      }else if ((rev <= 200) && (rev > 175)) {
+        speed = 18;
+      } else if ((rev <= 225) && (rev > 200)) {
+        speed = 20;
+      } else if ((rev <= 250) && (rev > 225)) {
+        speed = 21;
+      } else if ((rev <= 262) && (rev > 250)) {
+        speed = 23;
+      } else if ((rev <= 275) && (rev > 262)) {
+        speed = 26;
+      } else if ((rev <= 287) && (rev > 275)) {
+        speed = 28;
+      } else if ((rev <= 300) && (rev > 287)) {
+        speed = 31;
+      } else if ((rev <= 316) && (rev > 300)) {
+        speed = 32;
+      }else if ((rev <= 333) && (rev > 316)) {
+        speed = 34;
+      }else if ((rev <= 350) && (rev > 333)) {
+        speed = 36;
+      } else if ((rev <= 362) && (rev > 350)) {
+          speed = 38;
+        }else if ((rev <= 400) && (rev > 375)) {
+          speed = 42;
+        }
+    }
+  }
+return speed;
+
+}
+
+void updateSpeed(){
+for(v_id=0;v_id<N;v_id++){
+  if(B[v_id] == 1){
+    if(cnt%10==0){
+    if(VEL[v_id]>=1)
+      VEL[v_id] = VEL[v_id] - 1;
+    else
+      VEL[v_id]=0;
+  }
+  }
+  else{
+    VEL[v_id]=speedCal(env_torq[v_id], env_gear[v_id]);
+  }
+}
+}
+
+
+void  reDirect(int id, int left, int right){
+if(Dir[id] == 1){
+    if(left == 1)
+       Dir[id] = 4; 
+    else if (right == 1)
+       Dir[id] = 2; 
+}
+else if(Dir[id] == 2){
+    if(left == 1)
+       Dir[id] = 1; 
+    else if(right == 1)
+       Dir[id] = 3; 
+}
+else if(Dir[id] == 3){
+    if(left == 1)
+       Dir[id] = 2;
+    else if(right ==1)
+      Dir[id] = 4;
+}
+else if(Dir[id] == 4){
+    if(left == 1)
+       Dir[id] = 3;
+    else if(right ==1)
+       Dir[id] = 1;
+   }
+}
+
+
+
+void updateDir(){
+for(v_id=0;v_id<N;v_id++){
+if(leftReq[v_id]!=0||rightReq[v_id]!=0){
+reDirect(v_id, leftReq[v_id], rightReq[v_id]);
+leftReq[v_id]=0;
+rightReq[v_id]=0;
+conLeft[v_id]=0;
+conRight[v_id]=0;
+acLeft[v_id]=0;
+acRight[v_id]=0;
+
+}
+}
+}
+
+```;
+
+
+//=======================Behavior of EnvTS=========================
+Clock changeSign, change2ini;
+changeSign is periodicOn tu period 800; //reselect a traffic sign type every 800 seconds
+changeSign pAction {(0.07, {env_sign=0}), (0.07, {env_sign=9}),  (0.07, {env_sign=18}), (0.07, {env_sign=27}), (0.56, {env_sign=36}),(0.07, {env_sign=45}),  (0.07, {env_sign=54}), (0.07, {env_sign=63})}; 
+change2ini is changeSign delayFor [ 30, 30 ] on tu;
+change2ini action {env_sign=36};
+
+
+//======================Behavior of SignRecognition===========================
+Clock SR_signtype, Trig3;
+//Clock SRtrig;
+Trig3 is periodicOn tu period 3;
+Trig3 action {sign_num=env_sign};
+SR_signtype is Trig3 delayFor [ 1, 2 ] on tu;
+SR_signtype action {SRupdate(), ST=SR_ST, l_contlr_in[0]=1};
+
+
+```C
+int temp[72];
+int input[72];
+int n;
+int ix;
+int i,j;
+int mtmp;
+int similarity[8];
+//double rand_type;
+int sign_num = 9, st;
+
+void SRupdate()
+{
+
+ //the input matrix is generated by adding the white gaussian noise with the template matrix
+
+  int iv0[9] = { 957, 5, 234, 1, 281, 62, -46, 38, 193 };
+  
+  int iv1[9] = { 205, 116, 128, 1063, -46, 41, -83, 55, 194 };
+
+  int iv2[9] = { 171, 328, 116, -116, 268, 228, 941, 122, 177 };
+
+  int iv3[9] = { 138, 1069, 88, 96, 108, 21, 242, 100, 168 };
+  
+  int iv4[9] = { 14, -8, 90, 74, 1119, 160, 154, -45, 3 };
+
+  int iv5[9] = { 120, 65, 228, 234, 41, 187, 239, 1032, 262 };
+
+  int iv6[9] = { 206, 121, 1087, 119, 58, 135, 103, 63, 277 };
+
+  int iv7[9] = { 122, 373, 70, 156, 258, 1272, 130, 20, 180 };
+  
+ // int sign_array[12] = { 9, 36, 36, 63, 36, 0, 9, 54, 45, 18, 27, 63};
+
+//generate the eight templates
+  for(i=0;i<72;i++){
+  temp[i]=1;
+  }
+
+  temp[0] = 10;
+  temp[12] = 10;
+  temp[24] = 10;
+  temp[28] = 10;
+  temp[40] = 10;
+  temp[52] = 10;
+  temp[56] = 10;
+  temp[68] = 10;
+
+  for (n = 0; n < 3; n++) {
+    for (ix = 0; ix < 3; ix++) {
+      input[ix + 3 * n] = iv0[ix + 3 * n];
+      input[9 + (ix + 3 * n)] = iv1[ix + 3 * n];
+      input[18 + (ix + 3 * n)] = iv2[ix + 3 * n];
+      input[27 + (ix + 3 * n)] = iv3[ix + 3 * n];
+      input[36 + (ix + 3 * n)] = iv4[ix + 3 * n];
+      input[45 + (ix + 3 * n)] = iv5[ix + 3 * n];
+      input[54 + (ix + 3 * n)] = iv6[ix + 3 * n];
+      input[63 + (ix + 3 * n)] = iv7[ix + 3 * n];
+    }
+  }
+  //rand_type = ceil(8 * random(1));
+
+//  sign_num = sign_array[sign_index];
+
+  // calculate the similarity and get the max similarity 
+  for (n = 0; n < 8; n++) {
+    similarity[n] = 0;
+    for (ix = 0; ix < 3; ix++) {
+      for (j = 0; j < 3; j++) {
+        similarity[n] += (input[sign_num + (ix + 3 * j)] * temp[(ix + 3 * j) +
+          9 * n]);
+      }
+    }
+  }
+
+  mtmp = similarity[0];
+
+  n = 0;
+  for (ix = 1; ix + 1 < 9; ix++) {
+    if (similarity[ix] > mtmp) {
+      mtmp = similarity[ix];
+      n = ix;
+    }
+  }
+ // if(sign_index == 11){
+  //  sign_index = 0;} 
+  // else {
+  // sign_index = sign_index + 1;}*/
+
+  st = n + 1;
+
+  if(st == 1){ 
+        SR_ST = 2;
+        if(min<=10){
+        min = 10;}}
+
+    if(st == 2){
+        SR_ST = 2;
+        min = 16;}
+
+    if(st == 3){
+        SR_ST = 1;
+        max = 23;}
+
+    if(st == 4){
+        SR_ST = 1;
+        max = 30;}
+
+    if(st == 5){
+        SR_ST = 0;}
+
+    if(st > 5){
+        SR_ST = st-3;}
+}
+
+int runCnt;
+```;
+
+
+//=============================Behavior of GPS=========================
+Clock sen_posc[2];
+//GPSTrig[2], 
+//GPSTrig[0] is periodicOn tu period 3;
+//GPSTrig[1] is periodicOn tu period 3;
+sen_posc[0] is Trig3 delayFor [ 1, 2 ] on tu;
+sen_posc[1] is Trig3 delayFor [ 1, 2 ] on tu;
+sen_posc[0] action {sen_posx[0]=PX[0], sen_posy[0]=PY[0],  posx[0]=sen_posx[0], posy[0]=sen_posy[0], l_contlr_in[3]=1};
+sen_posc[1] action {sen_posx[1]=PX[1], sen_posy[1]=PY[1], posx[1]=sen_posx[1], posy[1]=sen_posy[1], f_contlr_in[2]=1};
+
+
+//==============================Behavior of SpeedSensor====================
+Clock sen_speedc[2];
+// speedsenTrig[2],
+//speedsenTrig[0] is periodicOn tu period 3;
+//speedsenTrig[1] is periodicOn tu period 3;
+sen_speedc[0] is Trig3 delayFor [ 1, 2 ] on tu;
+sen_speedc[0] action {sen_vel[0]=VEL[0], vel[0]=sen_vel[0], l_contlr_in[2]=1};
+sen_speedc[1] is Trig3 delayFor [ 1, 2 ] on tu;
+sen_speedc[1] action {sen_vel[1]=VEL[1], vel[1]=sen_vel[1], f_contlr_in[1]=1};
+
+
+//==============================Behavior of dirSensor==========================
+Clock sen_dirc[2];
+//dirsenTrig[2], 
+//dirsenTrig[0] is periodicOn tu period 3;
+//dirsenTrig[1] is periodicOn tu period 3;
+
+sen_dirc[0] is Trig3 delayFor [ 1, 2 ] on tu;
+sen_dirc[0] action {sen_dir[0]=Dir[0], conDir[0]=sen_dir[0], l_contlr_in[1]=1};
+
+sen_dirc[1] is Trig3 delayFor [ 1, 2 ] on tu;
+sen_dirc[1] action {sen_dir[1]=Dir[1], conDir[1]=sen_dir[1], f_contlr_in[0]=1};
+
+//==================================Behavior of Controller=============================
+Clock conAct[2], conFin[2], conIdle[2];
+```C 
+bool l_contlr_in[4], f_contlr_in[3], conExe[2]; 
+int ctrlr_ini[2]={1,1};
+//int l_contlr_out[6], f_contlr_out[6];
+```;
+
+
+//==================================Behavior of Leader Controller=============================
+//Input 
+//SR_signtype action {};
+//sen_dirc[0] action {conDir[0]=sen_dir[0], l_contlr_in[1]=1};
+//sen_speedc[0] action {vel[0]=sen_vel[0], l_contlr_in[2]=1};
+//sen_posc[0] action {posx[0]=sen_posx[0], posy[0]=sen_posy[0], l_contlr_in[3]=1};
+conAct[0] is if l_contlr_in[0]&&l_contlr_in[1]&&l_contlr_in[2]&&l_contlr_in[3] then ac else nc;
+conAct[0] action {ctrlr_ini[0]=0, l_contlr_in[0]=0, l_contlr_in[1]=0, l_contlr_in[2]=0, l_contlr_in[3]=0, conExe[0]=1};
+conIdle[0] is conAct[0] delayFor [ 3, 5 ] on tu;
+conIdle[0] action {conExe[0]=0};
+
+
+//Output
+Clock con_speed[2], con_gear[2], con_dir[2], con_torq[2], con_brake[2], con_pos[2];
+con_dir[0] is if true then conIdle[0] else nc;
+con_gear[0] is conIdle[0] delayFor [ 0, 1 ] on tu;
+con_torq[0] is conIdle[0] delayFor [ 0, 1 ] on tu;
+con_brake[0] is conIdle[0] delayFor [ 0, 1 ] on tu;
+con_speed[0] is conIdle[0] delayFor [ 0, 1 ] on tu;
+con_pos[0] is conIdle[0] delayFor [ 0, 1 ] on tu;
+con_pos[0] action {ctrlr_ini[0]=1, conExe[0]=1}; //last output
+
+//==================================Behavior of Follower Controller=============================
+//Input 
+//sen_dirc[1] action {conDir[1]=sen_dir[1], f_contlr_in[0]=1};
+//sen_speedc[1] action {vel[1]=sen_vel[1], f_contlr_in[1]=1};
+//sen_posc[1] action {posx[1]=sen_posx[1], posy[1]=sen_posy[1], conDir[1]=sen_dir[1], f_contlr_in[2]=1};
+conAct[1] is if f_contlr_in[0]&&f_contlr_in[1]&&f_contlr_in[2] then ac else nc;
+conAct[1] action {f_contlr_in[0]=0, f_contlr_in[1]=0, f_contlr_in[2]=0, conExe[1]=1};
+conIdle[1] is conAct[1] delayFor [ 3, 5 ] on tu;
+conIdle[1] action {conExe[1]=0};
+
+con_dir[1] is if true then conIdle[1] else nc;
+con_gear[1] is conIdle[1] delayFor [ 0, 1 ] on tu;
+con_torq[1] is conIdle[1] delayFor [ 0, 1 ] on tu;
+con_brake[1] is conIdle[1] delayFor [ 0, 1 ] on tu;
+con_speed[1] is conIdle[1] delayFor [ 0, 1 ] on tu;
+con_pos[1] is conIdle[1] delayFor [ 0, 1 ] on tu;
+con_pos[1] action {ctrlr_ini[1]=1, conExe[1]=1}; //last output
+
+//Output
+
+
+//====================================Behavior of Leader Control========================================
+//the contlr_output of controller
+//Clock enterLeft[2], exitConst[2], enterRight[2], enterConst[2], enterDec[2], enterAcc[2], enterStop[2];
+```C 
+int in_const[2], in_stop[2], in_left, in_right, in_dec[2], in_acc[2];
+int in_contrlr_init[2]={1, 1};
+```;
+
+Clock go_static[2];
+Clock ini2Const[2];
+
+go_static[0] is if vel[0]<=0&&in_contrlr_init[0]==1 then conAct[0] else nc;
+go_static[0] action {in_contrlr_init[0]=0, in_stop[0]=1};
+ini2Const[0] is if vel[0]>0&&in_contrlr_init[0]==1 then conAct[0] else nc;
+ini2Const[0] action {enter_constS(0), in_contrlr_init[0]=0, in_const[0]=1};
+
+```C
+void enter_constS(int id){
+ if(reqG[id] == 0)
+     reqG[id] = 1; 
+  if(reqG[id] > 5)
+      reqG[id] = 5; 
+  if (reqT[id] > 400)
+     reqT[id] = 400;
+  else if (reqT[id] < 24)
+     reqT[id] = 24; 
+}
+void enter_turn(int id){
+  entrySpeed[id] = vel[id];
+  entryGear[id] = gear[id];
+}
+
+```;
+Clock const2left, const2stop[2], const2right, const2dec[2], const2acc[2];
+Clock left2const, right2const, dec2const[2], acc2const[2];
+Clock go_constS[2];
+
+DenseClockType constT0{
+	reference idealClk,
+	factor in_const[0],
+	offset {},
+	reset  {ini2Const[0], acc2const[0], dec2const[0], left2const, right2const}	
+};
+Clock constt0:constT0;
+
+const2left is if in_const[0]==1&&ST==4&&constt0>=50 then conAct[0] else nc;
+const2left action {enter_turn(0), in_left=1, in_const[0]=0};
+//enterLeft[0] is if true then const2left[0] else nc;
+
+const2right is if in_const[0]==1&&ST==3&&constt0>=50  then conAct[0] else nc;
+const2right action {enter_turn(0), in_right=1, in_const[0]=0};
+//enterRight[0] is if true then const2right[0] else nc;
+
+const2stop[0] is if in_const[0]==1&&ST==5 then conAct[0] else nc;
+const2stop[0] action {in_stop[0]=1, in_const[0]=0};
+
+const2dec[0] is if in_const[0]==1&&ST==1&&vel[0]>max then conAct[0] else nc;
+const2dec[0] action {in_dec[0]=1, in_const[0]=0};
+//enterDec[0] is if true then const2dec[0] else nc;
+
+const2acc[0] is if in_const[0]==1&&ST==2&&vel[0]<min then conAct[0] else nc;
+const2acc[0] action {in_acc[0]=1, in_const[0]=0};
+
+left2const is if in_left==1 then go_constS[0] else nc;
+left2const action {in_left=0, in_const[0]=1};
+
+right2const is if in_right==1 then go_constS[0] else nc;
+right2const action {in_right=0, in_const[0]=1};
+
+DenseClockType decT0{
+	reference idealClk,
+	factor in_dec[0],
+	offset {},
+	reset  {const2dec[0]}
+};
+
+//behaviors in dec state 
+Clock dect0:decT0;
+Clock decTrig[2];
+decTrig[0] is periodicOn dect0 period 1;
+decTrig[0] action {decSpeed(0)};
+
+```C
+void gearDown(int id){
+if(reqG[id]>=1&&reqG[id]<=5)
+  reqG[id]=reqG[id]-1;
+}
+
+void gearUp(int id){
+if(reqG[id]<5)
+  reqG[id]=reqG[id]+1;
+}
+
+void decSpeed(int id){
+if(reqT[id]<24){
+     reqT[id]=24;}
+if (reqT[id]>400){
+     reqT[id]=400;}
+
+if(reqT[id]>=24&&reqT[id]<=398){
+   reqT[id] = reqT[id] + 1;
+}  
+if(cnt1>0&&cnt1%400==0){
+gearDown(id);
+}
+if(reqG[id] > 5){
+      reqG[id] = 5;}
+if(cnt1>=1800){
+cnt1=0;
+}
+}
+int cnt2[2];
+```;
+
+Clock dec2stop[2], acc2stop[2], stop2acc[2], left2stop, right2stop;
+
+
+DenseClockType accT0{
+	reference idealClk,
+	factor in_acc[0],
+	offset {},
+	reset  {const2acc[0], stop2acc[0]}
+};
+
+//behaviors in acc state 
+Clock acct0:accT0;
+Clock accTrig[2];
+accTrig[0] is periodicOn acct0 period 1;
+accTrig[0] action {accSpeed(0), cnt2[0]++};
+
+
+```C
+void accSpeed(int id){
+if(cnt2[id]>0&&cnt2[id]%400==0){
+gearUp(id);
+}
+if(reqT[id]>=24&&reqT[id]<=400){
+   reqT[id] = reqT[id] - 1;
+  }
+if(reqT[id]<24){
+     reqT[id]=24;}
+if(reqT[id]>400){
+     reqT[id]=400;}
+if(reqG[id] > 5){
+      reqG[id] = 5;}
+  
+if(cnt2[id]>=1800){
+  cnt2[id]=0;
+  } 
+}
+```;
+
+dec2const[0] is if in_dec[0]==1&&vel[0]>max&&conExe[0]==1 then ac else nc;
+dec2const[0] action {in_dec[0]=0, in_const[0]=1};
+
+acc2const[0] is if in_acc[0]==1&&vel[0]>min&&conExe[0]==1 then ac else nc;
+acc2const[0] action {in_acc[0]=0, in_const[0]=1};
+
+// Clock rightTrig[2], leftTrig[2];
+
+// DenseClockType rightT0{
+	// reference idealClk,
+	// factor in_right[0],
+	// offset  {},
+	// reset   {enterRight[0]}
+// };
+// Clock rightt0:rightT0;
+
+// rightTrig[0] is periodicOn rightt0 period 1;
+
+// DenseClockType leftT0{
+	// reference idealClk,
+	// factor in_left[0],
+	// offset  {},
+	// reset   {enterLeft[0]}
+// };
+// Clock leftt0:leftT0;
+// leftTrig[0] is periodicOn leftt0 period 1;
+
+// Clock enterConst1[2], enterConst2[2]; 
+// enterConst1[0] is dec2const[0] clockUnion acc2const[0];
+// enterConst2[0] is right2const[0] clockUnion left2const[0];
+// enterConst[0] is enterConst1[0] clockUnion enterConst2[0];
+// enterConst[0] action {enter_constS(0), in_const[0]=1};
+
+dec2stop[0] is if in_dec[0]==1&&ST==5 then conAct[0] else nc;
+acc2stop[0] is if in_acc[0]==1&&ST==5 then conAct[0] else nc;
+left2stop is if in_left==1&&ST==5 then conAct[0] else nc;
+right2stop is if in_right==1&&ST==5 then conAct[0] else nc;
+stop2acc[0] is if in_stop[0]==1&&ST==2&&vel[0]<min then conAct[0] else nc;
+
+// Clock enterStop1[2], enterStop2[2], enterStop3[2];
+// enterStop1[0] is right2stop[0] clockUnion left2stop[0];
+// enterStop2[0] is enterStop1[0] clockUnion acc2stop[0];
+// enterStop3[0] is enterStop2[0] clockUnion dec2stop[0];
+// enterStop[0] is  enterStop3[0] clockUnion const2stop[0];
+// enterStop[0] action {in_stop[0]=1};
+// Clock exitStop[2];
+// exitStop[0] is if true then stop2acc[0] else nc;
+// exitStop[0] action {in_stop[0]=0};
+
+// Clock exitAcc[2];
+// enterAcc[0] is const2acc[0] clockUnion stop2acc[0];
+// enterAcc[0] action {in_acc[0]=1};
+// exitAcc[0] is acc2const[0] clockUnion acc2stop[0];
+// exitAcc[0] action {in_acc[0]=0};
+
+// Clock exitDec[2];
+// exitDec[0] is dec2const[0] clockUnion dec2stop[0];
+// exitDec[0] action {in_dec[0]=0};
+
+// Clock exitRight[2], exitLeft[2];
+// exitRight[0] is right2const[0] clockUnion right2stop[0];
+// exitRight[0] action {in_right[0]=0};
+// exitLeft[0] is left2const[0] clockUnion left2stop[0];
+// exitLeft[0] action {in_left[0]=0};
+
+
+
+
+//===========================Behavior of Leader Stop=============================
+Clock startBrake[2];
+
+```C
+int stop_ini[2]={1,1}, in_braking[2], in_static[2];
+```;
+
+go_static[0] action {stop_ini[0]=0, brake[0]=1, in_static[0]=1};
+
+startBrake[0] is if stop_ini[0]==1&&conExe[0]==1&&in_stop[0]==1 then ac else nc;
+startBrake[0] action {stop_ini[0]=0, in_braking[0]=1, brake[0]=1, reqT[0]=400, reqG[0]=1};
+
+Clock brake2static[2];
+brake2static[0] is if in_braking[0]==1&&vel[0]<=0&&conExe[0]==1 then ac else nc;
+brake2static[0] action {in_braking[0]=0, in_static[0]=1};
+stop2acc[0] action {in_stop[0]=0, in_acc[0]=1, brake[0]=0, stop_ini[0]=1, in_braking[0]=0, in_static[0]=0};
+
+
+//========================Behavior of Leader TurnLeft=======================
+```C
+int left_ini, left_SpeedDown, left_Turn, left_SpeedUp;
+int left_cnt1, left_cnt2, left_decnt, left_cnt;
+int cuposx, cuposy;
+```;
+
+const2left action {left_cnt1=0, left_decnt=0, cuposx=posx[0], cuposy=posy[0], left_SpeedDown=1, left_ini=0};
+
+// DenseClockType l_sdT0{
+	// reference idealClk,
+	// factor left_SpeedDown,
+	// offset {},
+	// reset {exitLeft[0]}
+// };
+// Clock l_sdt0:l_sdT0;
+
+// Clock left_fre, left_sd;
+// Clock left_tu:IdealClock;
+
+// left_fre is periodicOn l_sdt0 period 1;
+// left_sd is if left_SpeedDown==1&&ready2Turn(0)==false then left_fre else nc;
+// left_sd action {left_decnt++};
+
+Clock startTurnLeft;
+startTurnLeft is if left_SpeedDown==1&&ready2Turn(0)==true then ac else nc; 
+startTurnLeft action {left_cnt=0, left_Turn=1, left_SpeedDown=0};
+
+Clock leftturn2ini, leftturn2su;
+
+leftturn2ini is if left_Turn==1 then left2stop else nc;
+leftturn2ini action {turnReq(0, 1,0), left_Turn=0, left_ini=1};
+leftturn2su is startTurnLeft delayFor [ 10, 20 ] on tu;
+leftturn2su action {turnReq(0, 1,0), left_Turn=0, left_SpeedUp=1};
+
+```C
+void  turnReq(int id, int left, int right){
+conLeft[id]=left;
+conRight[id]=right;
+turnx[id] = PX[id];
+turny[id] = PY[id];
+}
+
+bool ready2Turn(int id){
+if(conDir[id]==1)//current direction is positive y-axis
+{
+if(posy[id]-cuposy>=50&&posy[id]-cuposy<=100){ //the vehicle should turn within 5-10 meters distance
+return true;
+}
+return false;
+}
+
+if(conDir[id]==3)//current direction is negative y-axis
+{
+if(cuposy-posy[id]>=50&&cuposy-posy[id]<=100){
+return true;
+}
+return false;
+}
+if(conDir[id]==2)//current direction is positive x-axis
+{
+if(posx[id]-cuposx>=50&&posx[id]-cuposx<=100){ //the vehicle should turn within 5-10 meters distance
+return true;
+}
+return false;
+}
+
+if(conDir[id]==4)//current direction is negative x-axis
+{
+if(cuposx-posx[id]>=50&&cuposx-posx[id]<=100){
+return true;
+}
+return false;
+}
+
+return false;
+}
+```;
+
+//Clock completeTurn[2];
+Clock rightturn2ini, rightturn2su;
+
+go_constS[0] is leftturn2su delayFor [ left_decnt, left_decnt ] on tu;
+go_constS[0] is rightturn2su delayFor [ right_decnt, right_decnt ] on tu;
+//completeTurn[0] is if true then go_constS[0] else nc;
+go_constS[0] action {left_SpeedUp=0, left_ini=1, right_SpeedUp=0, right_ini=1};
+//exitLeft[0] action {left_SpeedDown=0, left_SpeedUp=0, left_ini=1};
+
+
+//=================================Behavior of Leader TurnRight==========================================
+```C
+int right_ini, right_SpeedDown, right_Turn, right_SpeedUp;
+int right_cnt1, right_cnt2, right_cnt, right_decnt;
+```;
+
+const2right action {right_ini=0, right_SpeedDown=1,right_cnt1=0, right_decnt=0, cuposx=posx[0], cuposy=posy[0]};
+
+// DenseClockType r_sdT0{
+	// reference idealClk,
+	// factor right_SpeedDown,
+	// offset {},
+	// reset {right2stop[0], right2const[0]}
+// };
+// Clock r_sdt0:r_sdT0;
+// Clock right_fre, right_sd;
+// Clock right_tu:IdealClock;
+// Clock turn_de[2];
+// right_fre is periodicOn r_sdt0 period 1;
+// right_sd is if right_SpeedDown==1&&ready2Turn(0)==false then right_fre else nc;
+// right_sd action {right_decnt++};
+Clock startTurnRight;
+
+startTurnRight is if right_SpeedDown==1&&ready2Turn(0)==true then ac else nc; 
+startTurnRight action {right_cnt=0, right_Turn=1, right_SpeedDown=0};
+
+
+rightturn2ini is if right_Turn==1 then right2stop else nc;
+rightturn2ini action {turnReq(0, 0, 1), right_Turn=0, right_ini=1};
+rightturn2su is startTurnRight delayFor [ 10, 20 ] on tu;
+//rightturn2su[0] is if right_Turn==1 then right_de[0] else nc;
+rightturn2su action {turnReq(0, 0, 1), right_Turn=0, right_SpeedUp=1};
+
+//exitRight[0] action {right_SpeedDown=0, right_SpeedUp=0, right_ini=1};
+
+//=============================Behavior of Follower Control==========================
+//the contlr_output of controller
+//Clock enterTurn, exitTurn, enterStr, exitStr, INSTOP;
+//Clock ini2str, turn2str, turn2stop, stop2str, str2turn, str2stop, go_Str,turnTrig;
+
+go_static[1] is if vel[1]<=0&&in_contrlr_init[1]==1 then conAct[1] else nc;
+go_static[1] action {dflag[1]=checkDis(1), in_stop[1]=1, in_contrlr_init[1]=0};
+ini2Const[1] is if vel[1]>0&&in_contrlr_init[1]==1 then conAct[1] else nc;
+ini2Const[1] action {enter_constS(1), in_contrlr_init[1]=0, in_const[1]=1};
+
+// Clock str_tick, str_fre;
+// str_fre is periodicOn tu period 1;
+// str_tick is if in_str==1&&conDir[1]==aDir[1]&&abrake[1]==0 then str_fre else nc;
+// str_tick action {dflag[1]=checkDis(1)};
+```C
+int in_turn;
+```;
+
+Clock const2turn, acc2turn, dec2turn, turn2const, turn2stop;
+const2turn is if in_const[1]==1&&conExe[1]==1&&conDir[1]!=aDir[1] then ac else nc;
+const2turn action {in_const[1]=0, in_turn=1, entrySpeed[1]=vel[1]};
+
+acc2turn is if in_acc[1]==1&&conExe[1]==1&&conDir[1]!=aDir[1] then ac else nc;
+acc2turn action {in_acc[1]=0, in_turn=1, entrySpeed[1]=vel[1]};
+
+dec2turn is if in_dec[1]==1&&conExe[1]==1&&conDir[1]!=aDir[1] then ac else nc;
+dec2turn action {in_dec[1]=0, in_turn=1, entrySpeed[1]=vel[1]};
+
+Clock enterTurn1, enterTurn;
+enterTurn1 is const2turn clockUnion acc2turn;
+enterTurn is enterTurn1 clockUnion dec2turn;
+
+const2stop[1] is if in_const[1]==1&&conExe[1]==1&&abrake[1]==1 then ac else nc;
+const2stop[1] action {in_const[1]=0, in_stop[1]=1};
+
+//enterDec[0] is if true then const2dec[0] else nc;
+const2dec[1] is if in_const[1]==1&&conExe[1]==1&&dflag[1]==1 then ac else nc;
+const2dec[1] action {in_const[1]=0, in_dec[1]=1};
+
+const2acc[1] is if in_const[1]==1&&conExe[1]==1&&dflag[1]==2 then ac else nc;
+const2acc[1] action {in_const[1]=0, in_acc[1]=1};
+
+DenseClockType decT1{
+	reference idealClk,
+	factor in_dec[1],
+	offset   {},
+	reset    {const2dec[1]}
+};
+Clock dect1:decT1;
+decTrig[1] is periodicOn dect1 period 1;
+//decTrig[1] is if in_dec[1]==1&&conExe[1]==1&&(vel[1]>avel[1]||dflag[1]==1) then dec_fre else nc;
+```C
+int dec_cnt1, acc_cnt2;
+```;
+decTrig[1] action {decSpeed(1), dec_cnt1++};
+ 
+DenseClockType accT1{
+	reference idealClk,
+	factor in_acc[1],
+	offset   {},
+	reset    {const2acc[1], stop2acc[1]}
+};
+Clock acct1:accT1;
+
+accTrig[1]  is periodicOn acct1 period 1;
+//accTrig[1] is if in_acc[1]==1&&conExe[1]==1&&(vel[1]<avel[1]||dflag[1]==2) then acc_fre else nc;
+accTrig[1] action {accSpeed(1), acc_cnt2++};
+
+acc2const[1] is if in_acc[1]==1&&conExe[1]==1&&vel[1]>=avel[1]&&dflag[1]!=2 then ac else nc;
+acc2const[1] action {in_acc[1]=0, in_const[1]=1};
+
+dec2const[1] is if in_dec[1]==1&&conExe[1]==1&&vel[1]<=avel[1]&&dflag[1]!=1 then ac else nc;
+dec2const[1] action {in_dec[1]=0, in_const[1]=1};
+
+// DenseClockType turnT{
+	// reference idealClk,
+	// factor in_turn,
+	// offset  {},
+	// reset   {enterTurn}
+// };
+// Clock turnt:turnT; 
+// turnTrig is periodicOn turnt period 1;
+
+turn2const is if in_turn==1 then go_constS[1] else nc;
+turn2const action {in_turn=0, in_const[1]=1};
+
+turn2stop is if in_turn==1&&abrake[1]==1 then conAct[1] else nc;
+turn2stop action {in_turn=0, in_stop[1]=1};
+
+stop2acc[1] is if in_stop[1]==1&&conExe[1]==1&&(dflag[1]==2||(conDir[1]==aDir[1]&&vel[1]<=avel[1]&&dflag[1]==0)) then ac else nc;
+stop2acc[1] action {in_braking[1]=0, in_static[1]=0, stop_ini[1]=1, brake[1]=0, in_stop[1]=0, in_acc[1]=1};
+
+//stop2str is if in_stop[1]==1&&conDir[1]==aDir[1]&&vel[1]<=avel[1]&&conExe[1]==1&&dflag[1]==0 then ac else nc;
+
+// Clock enterStr1;
+// enterStr1 is stop2str clockUnion turn2str;
+// enterStr is enterStr1 clockUnion ini2str;
+// enterStr action {in_stop[1]=0, in_turn=0, in_str=1, in_contrlr_initial[1]=0, dflag[1]=enStr(1)};
+
+// Clock stop_fre;
+// DenseClockType stopT{
+	// reference idealClk,
+	// factor    in_stop[1],
+	// offset    {},
+	// reset     {enterStop[1]}
+// };
+// Clock stopt:stopT;
+
+// stop_fre is periodicOn stopt period 1;
+// INSTOP is if in_stop[1]==1&&dflag[1]!=2 then stop_fre else nc;
+// INSTOP action {dflag[1]=checkDis(1)};
+
+```C
+int enStr(int id){
+  if(reqG[id] == 0)
+     reqG[id] = 1;  
+  if(reqG[id] > 5)
+      reqG[id] = 5; 
+  if (reqT[id] > 400)
+     reqT[id] = 400;
+  else if (reqT[id] < 24)
+     reqT[id] = 24;
+  return checkDis(id);
+}
+```;
+
+//==============================Behavior of Follower Straight==============================
+
+
+
+// ini2Const[1] is if str_ini==1&&his==0 then enterStr else nc;
+// ini2Const[1] action {in_const[1]=1, str_ini=0};
+
+// Clock ini2dec, ini2acc;
+// ini2dec is if str_ini==1&&his[1]==2 then enterStr else nc;
+// ini2dec action {in_dec[1]=1, str_ini=0};
+
+// ini2acc is if str_ini==1&&his[1]==1 then enterStr else nc;
+// ini2acc action {in_acc[1]=1, str_ini=0};
+
+// DenseClockType constT1{
+//	reference idealClk,
+//	factor   in_const[1],
+//	offset   {},
+//	reset    {enterConst[1]}
+//};
+//Clock constt1:constT1; 
+
+// Clock const2ini, acc2ini, dec2ini;
+// const2ini is if in_const[1]==1 then exitStr else nc;
+// const2ini action {in_const[1]=0, str_ini=1, his[1]=0};
+
+// dec2ini is if in_dec[1]==1 then exitStr else nc;
+// dec2ini action {in_dec[1]=0, str_ini=1, his[1]=2};
+
+// acc2ini is if in_acc[1]==1 then exitStr else nc;
+// acc2ini action {in_acc[1]=0, str_ini=1, his[1]=1};
+
+// const2dec[1] is if in_const[1]==1&&conExe[1]==1&&dflag[1]==1 then ac else nc;
+// const2dec[1] action {in_const[1]=0, in_dec[1]=1};
+
+// const2acc[1] is if in_const[1]==1&&conExe[1]==1&&dflag[1]==2 then ac else nc;
+// const2acc[1] action {in_const[1]=0, in_acc[1]=1};
+
+
+
+//=======================Behavior of Follower Stop=================================
+Clock ini2static;
+//ini2static is if stop_ini[1]==1 then go_static[1] else nc;
+go_static[1] action {stop_ini[1]=0, in_static[1]=1};
+startBrake[1] is if stop_ini[1]==1&&conExe[1]==1&&in_stop[1]==1 then ac else nc;
+startBrake[1] action {stop_ini[1]=0, in_braking[1]=1, brake[1]=1, reqT[1]=400, reqG[1]=1};
+
+brake2static[1] is if in_braking[1]==1&&vel[1]<=0&&conExe[1]==1 then ac else nc;
+brake2static[1] action {in_braking[1]=0, in_static[1]=1};
+
+
+
+//Behavior of Follower Turn
+
+
+
+
+```C
+int turn_ini=1;
+
+void f_turnReq(int id){
+//conDir[id]=aDir[id];
+//according to its current direction and the running direction of lead vehicle, decide whether to turn left or turn right
+if(aDir[id]==1){
+if(conDir[id]==2){
+conRight[id]=0;
+conLeft[id]=1;
+}
+if(conDir[id]==3){
+conRight[id]=1;
+conLeft[id]=0;
+}
+if(conDir[id]==4){
+conRight[id]=1;
+conLeft[id]=0;
+}
+}
+if(aDir[id]==2){
+if(conDir[id]==1){
+conRight[id]=1;
+conLeft[id]=0;
+}
+if(conDir[id]==3){
+conRight[id]=0;
+conLeft[id]=1;
+}
+if(conDir[id]==4){
+conRight[id]=1;
+conLeft[id]=0;
+}
+}
+if(aDir[id]==3){
+if(conDir[id]==1){
+conRight[id]=1;
+conLeft[id]=0;
+}
+if(conDir[id]==2){
+conRight[id]=1;
+conLeft[id]=0;
+}
+if(conDir[id]==4){
+conRight[id]=0;
+conLeft[id]=1;
+}
+}
+if(aDir[id]==4){
+if(conDir[id]==1){
+conRight[id]=0;
+conLeft[id]=1;
+}
+if(conDir[id]==2){
+conRight[id]=1;
+conLeft[id]=0;
+}
+if(conDir[id]==3){
+conRight[id]=1;
+conLeft[id]=0;
+}
+}
+turnCmd[id]=1;
+//turnx[id] = PX[id];
+//turny[id]=PY[id];
+}
+
+// void dec(){
+//if(reqG[id]>=1)
+ // reqG[id]=reqG[id]-1;
+//catupAcc[id]=0;
+//} 
+
+int abpos(int pos1, int pos2)
+{
+  if(pos1>=pos2) return pos1-pos2;
+  else return pos2-pos1;
+}
+
+
+bool CheckTurn(int id)
+{
+if(conDir[id]==2||conDir[id]==4){
+if(abpos(posx[id], turnx[id])<=70) //10 meter difference
+    return true;
+return false;
+}
+if(conDir[id]==1||conDir[id]==3){
+if(abpos(posy[id], turny[id])<=70){
+return true;
+} 
+return false;
+}
+return false;
+
+}
+
+void acc(int id){
+if(reqG[id]<5)
+  reqG[id]=reqG[id]+1;
+catupAcc[id]=1;
+}
+
+int in_cu;
+int inTurn;
+```;
+
+Clock ini2cu, cu2turn, turn2ini1, turn2ini2;
+Clock turn_tu: IdealClock;
+ini2cu is if turn_ini==1&&turn_tu>=500&&conExe[1]==1 then enterTurn else nc;
+ini2cu action {acc(1), turn_ini=0, in_cu=1};
+
+cu2turn is if in_cu==1&&CheckTurn(1) then ac else nc;
+cu2turn action {in_cu=0, inTurn=1, f_turnReq(1)};
+
+turn2ini1 is if inTurn==1 then turn2const else nc;
+turn2ini1 action {inTurn=0, turn_ini=1, f_turnReq(1)};
+
+go_constS[1] is if inTurn==1&&conDir[1]==aDir[1] then ac else nc;
+//completeTurn[1] is if true then go_Str else nc;
+go_constS[1] action {inTurn=0, finTurn[1]=1};
+
+//===============================Behavior of Actuator==============================================
+
+//==============================Behavior of Leader Actuator==================================
+
+```C 
+bool l_actr_in[4], f_actr_in[4];
+```;
+Clock actrAct[2], actrIdle[2];
+
+con_gear[0] action {acGear[0]=reqG[0], l_actr_in[0]=1};
+con_torq[0] action {acTorq[0]=reqT[0], l_actr_in[1]=1};
+con_brake[0] action {acBrake[0]= brake[0], l_actr_in[2]=1};
+con_dir[0] action {acLeft[0]=conLeft[0], acRight[0]=conRight[0], eFinTurn[0]=finTurn[0], l_actr_in[3]=1};
+
+actrAct[0] is if l_actr_in[0]&&l_actr_in[1]&&l_actr_in[2]&&l_actr_in[3] then ac else nc;
+actrAct[0] action {l_actr_in[0]=0, l_actr_in[1]=0, l_actr_in[2]=0, l_actr_in[3]=0};
+actrIdle[0] is actrAct[0] delayFor [ 3, 5 ]  on tu;
+
+```C
+int l_actr_out[4], f_actr_out[4];
+```;
+Clock ac_gearc[2], ac_torqc[2], ac_brakec[2],ac_dirc[2];
+
+//Clock actr_out1[2], actr_out2[2], actr_out3[2], actr_out4[2];
+ac_gearc[0] is if true then actrIdle[0] else nc;
+ac_torqc[0] is ac_gearc[0] delayFor [ 0, 1 ] on tu;
+ac_brakec[0] is ac_gearc[0] delayFor [ 0, 1 ] on tu;
+ac_dirc[0] is ac_gearc[0] delayFor [ 0, 1 ] on tu;
+ac_gearc[0] action {env_gear= acGear};
+
+
+//=================================Behavior of Follower Actuator===========================================
+
+con_gear[1] action {acGear[1]=reqG[1], f_actr_in[0]=1};
+con_torq[1] action {acTorq[1]=reqT[1], f_actr_in[1]=1};
+con_brake[1] action {acBrake[1]=brake[1], f_actr_in[2]=1};
+con_dir[1] action {acLeft[1]=conLeft[1], acRight[1]=conRight[1], eFinTurn[1]=finTurn[1], f_actr_in[3]=1};
+
+actrAct[1] is if f_actr_in[0]&&f_actr_in[1]&&f_actr_in[2]&&f_actr_in[3] then ac else nc;
+actrAct[1] action {f_actr_in[0]=0, f_actr_in[1]=0, f_actr_in[2]=0, f_actr_in[3]=0};
+actrIdle[1] is actrAct[1] delayFor [ 3, 5 ]  on tu;
+
+ac_gearc[1] is if true then actrIdle[1] else nc;
+ac_torqc[1] is ac_gearc[1] delayFor [ 0, 1 ] on tu;
+ac_brakec[1] is ac_gearc[1] delayFor [ 0, 1 ] on tu;
+ac_dirc[1] is ac_gearc[1] delayFor [ 0, 1 ] on tu;
+
+//Behavior of CommuDevice
+
+Clock comm;
+Clock com_tu:IdealClock;
+comm is periodicOn com_tu period 300;
+comm action {update_info()};
+
+
+```C
+void encode_m(int i){
+mtxt[i][0]=pid[i];
+mtxt[i][1]=brake[i];
+mtxt[i][2]=conDir[i];
+mtxt[i][3]=turnx[i];
+mtxt[i][4]=turny[i];
+mtxt[i][5]=posx[i];
+mtxt[i][6]=posy[i];
+mtxt[i][7]=vel[i];
+}
+
+
+void encode_vm(int i){
+encode_m(i);
+vmtxt[i][0]=mtxt[i][0];
+vmtxt[i][1]=mtxt[i][1];
+vmtxt[i][2]=mtxt[i][2];
+vmtxt[i][3]=mtxt[i][3];
+vmtxt[i][4]=mtxt[i][4];
+vmtxt[i][5]=mtxt[i][5];
+vmtxt[i][6]=mtxt[i][6];
+vmtxt[i][7]=mtxt[i][7];
+vmtxt[i][8]=mtxt[i][8];
+
+}
+
+void update_info(){
+encode_vm(0);
+abrake[1]=vmtxt[0][1];
+aDir[1]=vmtxt[0][2];
+turnx[1]=vmtxt[0][3];
+turny[1]=vmtxt[0][4];
+aPosX[1]=vmtxt[0][5];
+aPosY[1]=vmtxt[0][6];
+avel[1]=vmtxt[0][7];
+}
+
+```;
+
+
+//Property 1
+Clock xdir, overtake;
+xdir is if Dir[0]==2&&Dir[1]==2 then ac else nc;
+overtake is if PX[1]>=PX[0] then ac else nc;
+xdir excludes(p=0.95) overtake;
+
+
+
+
+
+
+
+
+
+
+
+

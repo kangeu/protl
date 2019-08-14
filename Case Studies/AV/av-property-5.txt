@@ -1,0 +1,970 @@
+//PrCCSL specifications of AV system
+
+
+//=========================Behavior of EnvSpeedPosDir=======================
+```C 
+//Environment
+int env_sign;
+int env_gear=2, env_torq=56, env_dir=2;
+int leftReq, rightReq;
+int VEL=7,PX,PY,Dir=2, B; //initial running direction: positive x-axis
+
+//Camera
+int image;
+
+//Sensors
+int sen_posx, sen_posy,sen_dir=2;
+int sen_vel;
+
+//SignRecognition
+int SR_ST;
+
+bool conExe;
+
+//Controller Interface
+int conLeft, conRight;
+
+int acGear=2, acTorq=56, acBrake, acDir=2, acLeft, acRight;
+int turnx, turny, turnCmd;
+
+const int turnpos = 10;
+
+
+int turnfinl;
+int sign;
+
+int posx, posy;
+int adist;
+int conDir=2;
+
+int vel;
+int dflag;
+int his;
+
+//Follower
+int finTurn;
+int eFinTurn;
+
+//output from the stateflow
+int reqT = 56, reqG = 2, brake, ACK;
+
+int entrySpeed;
+int torq=56,gear=2;
+int entryGear; 
+
+int ST, min, max;
+
+double brake_rate;
+
+//envSpeedPosDir
+int cnt;
+const int power = 10;
+const int para = 955;
+
+void updatePos(){
+if(cnt%10==0){
+if(PX<=-30000||PY<=-30000||PX>=30000||PY>=30000){
+  PX=0;
+  PY=0;
+}
+
+if(Dir==1){
+  PX = PX;
+  PY = PY + VEL;
+ }
+ else if(Dir==2){
+  PX = PX+VEL;
+  PY = PY;
+ }
+ else if(Dir==3){
+  PX = PX;
+  PY = PY-VEL;
+ }
+ else if(Dir==4){
+  PX = PX-VEL;
+  PY = PY;
+}
+}
+if(cnt>=10000){
+cnt=0;
+}
+}
+
+
+int g;
+int tempTorque;
+int tmp;
+int rev;
+int speed;
+
+int divide(int a, int b)
+{
+int remain = a;
+int res = 0;
+while(remain>=b){
+remain = remain - b;
+res = res + 1;
+}
+return res;
+}
+
+int speedCal(int torqueSetValue, int gearSet){
+//initially the wheelSpeed value is 0
+if(gearSet > 5)
+  g = 5; 
+else 
+  g = gearSet;
+if (torqueSetValue > 400)
+   tempTorque = 400;
+else if (torqueSetValue < 24)
+   tempTorque = 24;
+else tempTorque = torqueSetValue;
+
+//calculate the rotate speed
+tmp = (para*power);
+rev = divide(tmp, tempTorque);
+
+//update the speed 
+// the rotate speed should be reduced by 10 
+  if(g == 1){
+    if (rev <= 75) {
+      speed = 1;
+    } else if (rev <= 100) {
+      speed = 2;
+    } else if (rev <= 150) {
+      speed = 3;
+    } else if ((rev <= 200) && (rev > 150)) {
+      speed = 4;
+    } else if ((rev <= 250) && (rev > 200)) {
+      speed = 5;
+    } else if ((rev <= 300) && (rev > 250)) {
+      speed = 7;
+    } else if ((rev <= 350) && (rev > 300)) {
+      speed = 8;
+    } else if ((rev <= 400) && (rev < 350)) {
+        speed = 9;
+      }
+  } else if (g == 2) {
+    if (rev <= 75) {
+      speed = 3;
+    } else if (rev>75&&rev <= 100) {
+      speed = 4;
+    }else if (rev>100&&rev <= 125) {
+      speed = 5;
+    }else if (rev>125&&rev <= 150) {
+      speed = 6;
+    } else if ((rev <= 200) && (rev > 150)) {
+      speed = 7;
+    } else if ((rev <= 250) && (rev > 200)) {
+      speed = 8;
+    } else if ((rev <= 275) && (rev > 250)) {
+      speed = 10;
+     }else if ((rev <= 300) && (rev > 275)) {
+      speed = 11;
+    }else if ((rev <= 325) && (rev > 300)) {
+      speed = 12;
+    }  else if ((rev <= 350) && (rev > 325)) {
+      speed = 13;
+    } else if ((rev <= 375) && (rev > 350)) {
+      speed = 14;
+    } else if ((rev <= 400) && (rev > 375)) {
+        speed = 15;
+      }
+  } else if (g == 3) {
+    if (rev <= 75) {
+      speed = 4;
+    } else if (rev>75&&rev <= 87) {
+      speed = 5;
+    }else if (rev>87&&rev <= 100) {
+      speed = 6;
+    } else if (rev >100&&rev<=116) {
+      speed = 7;
+    }else if (rev>116&&rev < 133) {
+      speed = 8;
+    }else if (rev>133&&rev <= 150) {
+      speed = 9;
+    }else if ((rev <= 200) && (rev >= 150)) {
+      speed = 10;
+    } else if (rev>200&&rev <= 225) {
+      speed = 6;
+    }else if ((rev <= 250) && (rev > 225)) {
+      speed = 12;
+    }else if (rev>250&&rev <= 260) {
+      speed = 13;
+    }else if (rev>260&&rev <= 270) {
+      speed = 14;
+    }else if (rev>270&&rev <= 280) {
+      speed = 15;
+    }else if (rev>280&&rev <= 290) {
+      speed = 16;
+    }else if (rev <= 300 &&rev > 290) {
+      speed = 17;
+    }else if (rev <= 316 && rev>300) {
+        speed = 18;
+    }else if (rev <= 333 && rev>316) {
+        speed = 19;
+    }else if (rev <= 350 && rev > 333) {
+      speed = 20;
+    } else if (rev <= 366 && rev > 350) {
+      speed = 21;
+    } else if (rev <= 383 && rev>366) {
+        speed = 22;
+    }else if (rev <= 400 && rev>383) {
+        speed = 23;
+    }  
+    }
+   else if (g == 4) {
+      if (rev <= 75) {
+        speed = 6;
+      } else if ((rev <= 87) && (rev > 75)) {
+        speed = 7;
+      } else if ((rev <= 100) && (rev > 87)) {
+        speed = 8;
+      } else if (rev <= 112&&rev >100) {
+        speed = 9;
+      } else if (rev <= 125&&rev >112) {
+        speed = 10;
+      }else if (rev <= 137&&rev >125) {
+        speed = 11;
+      }else if (rev <= 150&&rev >137) {
+        speed = 12;
+      }else if (rev <= 175 && rev >150) {
+        speed = 13;
+      } else if (rev <= 200 && rev > 175) {
+        speed = 14;
+      } else if ((rev <= 225) && (rev > 200)) {
+        speed = 15;
+      }else if ((rev <= 250) && (rev > 225)) {
+        speed = 16;
+      } else if ((rev <= 262) && (rev > 250)) {
+        speed = 18;
+      }else if ((rev <= 275) && (rev > 262)) {
+        speed = 20;
+      }else if ((rev <= 287) && (rev > 275)) {
+        speed = 22;
+      } else if ((rev <= 300) && (rev > 287)) {
+        speed = 24;
+      }else if ((rev <= 316) && (rev > 300)) {
+        speed = 25;
+      }else if ((rev <= 333) && (rev > 316)) {
+        speed = 26;
+      }else if ((rev <= 350) && (rev > 333)) {
+        speed = 27;
+      }else if ((rev <= 400) && (rev > 387)) {
+          speed = 31;
+        }
+    }
+ else {
+    if (g == 5) {
+      if (rev <= 75) {
+        speed = 8;
+      } else if ((rev <= 87) && (rev > 75)) {
+        speed = 9;
+      }else if ((rev <= 100) && (rev > 87)) {
+        speed = 10;
+      } else if ((rev <= 150) && (rev > 100)) {
+        speed = 16;
+      } else if ((rev <= 175) && (rev > 150)) {
+        speed = 17;
+      }else if ((rev <= 200) && (rev > 175)) {
+        speed = 18;
+      } else if ((rev <= 225) && (rev > 200)) {
+        speed = 20;
+      } else if ((rev <= 250) && (rev > 225)) {
+        speed = 21;
+      } else if ((rev <= 262) && (rev > 250)) {
+        speed = 23;
+      } else if ((rev <= 275) && (rev > 262)) {
+        speed = 26;
+      } else if ((rev <= 287) && (rev > 275)) {
+        speed = 28;
+      } else if ((rev <= 300) && (rev > 287)) {
+        speed = 31;
+      } else if ((rev <= 316) && (rev > 300)) {
+        speed = 32;
+      }else if ((rev <= 333) && (rev > 316)) {
+        speed = 34;
+      }else if ((rev <= 350) && (rev > 333)) {
+        speed = 36;
+      } else if ((rev <= 362) && (rev > 350)) {
+          speed = 38;
+        }else if ((rev <= 400) && (rev > 375)) {
+          speed = 42;
+        }
+    }
+  }
+return speed;
+//gear[id] = g;
+//torq[id] = tempTorque;
+//update the direction
+
+}
+
+void updateSpeed(){
+  if(B == 1){
+    if(cnt%10==0){
+    if(VEL>0)
+      VEL = VEL - 1;
+    else
+      VEL=0;
+  }
+  }
+  else{
+    VEL=speedCal(env_torq, env_gear);
+  }
+}
+
+
+void  reDirect(int left, int right){
+if(Dir == 1){
+    if(left == 1)
+       Dir = 4; 
+    else if (right == 1)
+       Dir = 2; 
+}
+else if(Dir == 2){
+    if(left == 1)
+       Dir = 1; 
+    else if(right == 1)
+       Dir = 3; 
+}
+else if(Dir == 3){
+    if(left == 1)
+       Dir = 2;
+    else if(right ==1)
+      Dir = 4;
+}
+else if(Dir == 4){
+    if(left == 1)
+       Dir = 3;
+    else if(right ==1)
+       Dir = 1;
+   }
+}
+
+
+
+void updateDir(){
+if(leftReq!=0||rightReq!=0){
+reDirect(leftReq, rightReq);
+leftReq=0;
+rightReq=0;
+conLeft=0;
+conRight=0;
+acLeft=0;
+acRight=0;
+
+}
+}
+
+
+
+int temp[72];
+int input[72];
+int n;
+int ix;
+int i,j;
+int mtmp;
+int similarity[8];
+//double rand_type;
+int sign_num = 9, st;
+
+void SRupdate()
+{
+
+ //the input matrix is generated by adding the white gaussian noise with the template matrix
+
+  int iv0[9] = { 957, 5, 234, 1, 281, 62, -46, 38, 193 };
+  
+  int iv1[9] = { 205, 116, 128, 1063, -46, 41, -83, 55, 194 };
+
+  int iv2[9] = { 171, 328, 116, -116, 268, 228, 941, 122, 177 };
+
+  int iv3[9] = { 138, 1069, 88, 96, 108, 21, 242, 100, 168 };
+  
+  int iv4[9] = { 14, -8, 90, 74, 1119, 160, 154, -45, 3 };
+
+  int iv5[9] = { 120, 65, 228, 234, 41, 187, 239, 1032, 262 };
+
+  int iv6[9] = { 206, 121, 1087, 119, 58, 135, 103, 63, 277 };
+
+  int iv7[9] = { 122, 373, 70, 156, 258, 1272, 130, 20, 180 };
+  
+ // int sign_array[12] = { 9, 36, 36, 63, 36, 0, 9, 54, 45, 18, 27, 63};
+
+//generate the eight templates
+  for(i=0;i<72;i++){
+  temp[i]=1;
+  }
+
+  temp[0] = 10;
+  temp[12] = 10;
+  temp[24] = 10;
+  temp[28] = 10;
+  temp[40] = 10;
+  temp[52] = 10;
+  temp[56] = 10;
+  temp[68] = 10;
+
+  for (n = 0; n < 3; n++) {
+    for (ix = 0; ix < 3; ix++) {
+      input[ix + 3 * n] = iv0[ix + 3 * n];
+      input[9 + (ix + 3 * n)] = iv1[ix + 3 * n];
+      input[18 + (ix + 3 * n)] = iv2[ix + 3 * n];
+      input[27 + (ix + 3 * n)] = iv3[ix + 3 * n];
+      input[36 + (ix + 3 * n)] = iv4[ix + 3 * n];
+      input[45 + (ix + 3 * n)] = iv5[ix + 3 * n];
+      input[54 + (ix + 3 * n)] = iv6[ix + 3 * n];
+      input[63 + (ix + 3 * n)] = iv7[ix + 3 * n];
+    }
+  }
+  //rand_type = ceil(8 * random(1));
+
+//  sign_num = sign_array[sign_index];
+
+ // calculate the similarity and get the max similarity 
+  for (n = 0; n < 8; n++) {
+    similarity[n] = 0;
+    for (ix = 0; ix < 3; ix++) {
+      for (j = 0; j < 3; j++) {
+        similarity[n] += (input[sign_num + (ix + 3 * j)] * temp[(ix + 3 * j) +
+          9 * n]);
+      }
+    }
+  }
+
+  mtmp = similarity[0];
+
+  n = 0;
+  for (ix = 1; ix + 1 < 9; ix++) {
+    if (similarity[ix] > mtmp) {
+      mtmp = similarity[ix];
+      n = ix;
+    }
+  }
+  // if(sign_index == 11){
+    // sign_index = 0;} 
+   // else {
+   // sign_index = sign_index + 1;}
+
+  st = n + 1;
+
+  if(st == 1){ 
+        SR_ST = 2;
+        if(min<=10){
+        min = 10;}}
+
+    if(st == 2){
+        SR_ST = 2;
+        min = 16;}
+
+    if(st == 3){
+        SR_ST = 1;
+        max = 23;}
+
+    if(st == 4){
+        SR_ST = 1;
+        max = 30;}
+
+    if(st == 5){
+        SR_ST = 0;}
+
+    if(st > 5){
+        SR_ST = st-3;}
+}
+
+
+int runCnt;
+
+
+void gearDown(){
+if(reqG>=1){
+  reqG=reqG-1;}
+}
+void gearUp(){
+if(reqG<5){
+  reqG=reqG+1;}
+}
+
+int cnt1;
+int decnt;
+int cuposx, cuposy; //record the position of car when the turning sign is detected
+int r_cnt1, r_decnt, r_cuposx, r_cuposy;
+
+void enter_turn(){
+  entrySpeed = vel;
+  entryGear = gear;
+}
+
+
+```;
+
+Clock tu: IdealClock;
+Clock ac: Always;
+Clock nc: Never;
+
+Clock envTrig;
+envTrig is periodicOn tu period 1;
+envTrig action {cnt++, updatePos(), updateSpeed(), updateDir()};
+
+//=======================Behavior of EnvTS=========================
+Clock changeSign, change2ini;
+changeSign is periodicOn tu period 800; //reselect a traffic sign type every 800 seconds
+changeSign pAction {(0.07, {env_sign=0}), (0.07, {env_sign=9}),  (0.07, {env_sign=18}), (0.07, {env_sign=27}), (0.56, {env_sign=36}),(0.07, {env_sign=45}),  (0.07, {env_sign=54}), (0.07, {env_sign=63})}; 
+change2ini is changeSign delayFor [ 30, 30 ] on tu;
+change2ini action {env_sign=36};
+
+//======================Behavior of Camera===========================
+Clock sendImg, Trig3;
+Clock cmrTrig;
+Trig3 is periodicOn tu period 3;
+cmrTrig is periodicOn tu period 5;
+cmrTrig action {image=env_sign};
+sendImg is Trig3 delayFor [ 1, 2 ] on tu;
+
+//======================Behavior of SignRecognition===========================
+sendImg action {sign_num=image};
+Clock SR_signtype;
+SR_signtype is sendImg delayFor [ 2, 3 ] on tu;
+SR_signtype action {SRupdate(), ST=SR_ST, contlr_in[0]=1};
+
+//=============================Behavior of GPS=========================
+Clock sen_posc;
+//GPSTrig is periodicOn tu period 3;
+sen_posc is Trig3 delayFor [ 1, 2 ] on tu;
+sen_posc action {sen_posx=PX, sen_posy=PY, sen_dir=Dir, posx=sen_posx, posy=sen_posy, conDir=sen_dir, contlr_in[3]=1};
+
+//==============================Behavior of SpeedSensor====================
+Clock sen_speedc;
+//speedsenTrig is periodicOn tu period 3;
+sen_speedc is Trig3 delayFor [ 1, 2 ] on tu;
+sen_speedc action {sen_vel=VEL, vel=sen_vel, contlr_in[2]=1};
+
+
+//==============================Behavior of dirSensor==========================
+Clock sen_dirc;
+//dirsenTrig is periodicOn tu period 3;
+sen_dirc is Trig3 delayFor [ 1, 2 ] on tu;
+sen_dirc action {env_dir=Dir, conDir=sen_dir, contlr_in[1]=1};
+
+
+
+//=============================Behavior of Controller=============================
+Clock conAct, conFin, conIdle;
+```C 
+bool contlr_in[4]; 
+int ctrlr_ini=1;
+```;
+
+conAct is if ctrlr_ini==1&&contlr_in[0]&&contlr_in[1]&&contlr_in[2]&&contlr_in[3] then ac else nc;
+conAct action {ctrlr_ini=0, contlr_in[0]=0, contlr_in[1]=0, contlr_in[2]=0, contlr_in[3]=0, conExe=1};
+conIdle is conAct delayFor [ 3, 5 ] on tu;
+conIdle action {conExe=0};
+
+Clock con_speed, con_gear, con_dir, con_torq, con_brake, con_pos;
+con_dir is if true then conIdle else nc;
+con_gear is con_dir delayFor [ 0, 1 ] on tu;
+con_torq is con_dir delayFor [ 0, 1 ] on tu;
+con_brake is con_dir delayFor [ 0, 1 ] on tu;
+con_speed is con_dir delayFor [ 0, 1 ] on tu;
+con_pos is con_dir delayFor [ 0, 1 ] on tu;
+con_pos action  {ctrlr_ini=1, conExe=0}; //last output
+
+//====================================Behavior of Control========================================
+//the contlr_output of controller
+```C 
+int in_const, in_stop, in_left, in_right, in_dec, in_acc;
+int in_contrlr_init=1;
+```;
+
+//Clock enterLeft, enterRight, exitConst, enterConst, enterDec, enterAcc, enterStop;
+Clock go_static;
+Clock ini2Const;
+
+go_static is if vel<=0&&in_contrlr_init==1 then conAct else nc;
+go_static action {in_contrlr_init=0, in_stop=1};
+ini2Const is if vel>0&&in_contrlr_init==1 then conAct else nc;
+ini2Const action {enter_constS(), in_contrlr_init=0, in_const=1};
+
+Clock const2left, const2stop, const2right, const2dec, const2acc;
+Clock left2const, right2const, dec2const, acc2const;
+
+```C
+void enter_constS(){
+ if(reqG == 0)
+     reqG = 1; 
+  if(reqG > 5)
+      reqG = 5; 
+  if (reqT > 400)
+     reqT = 400;
+  else if (reqT < 24)
+     reqT = 24; 
+
+}
+```;
+
+
+DenseClockType constT{
+	reference idealClk,
+	factor in_const,
+	offset {},
+	reset  {ini2Const, acc2const, dec2const, left2const, right2const}	
+};
+Clock constt:constT;
+
+
+const2left is if in_const==1&&ST==4&&constt>=50 then conAct else nc;
+const2left action {enter_turn(), in_left=1, in_const=0};
+//enterLeft is if true then const2left else nc;
+
+const2right is if in_const==1&&ST==3&&constt>=50 then conAct else nc;
+const2right action {enter_turn(), in_right=1, in_const=0};
+//enterRight is if true then const2right else nc;
+
+const2stop is if in_const==1&&ST==5 then conAct else nc;
+const2stop action {in_stop=1, in_const=0};
+
+const2dec is if in_const==1&&ST==1&&vel>max then conAct else nc;
+const2dec action {in_dec=1, in_const=0};
+//enterDec is if true then const2dec else nc;
+
+const2acc is if in_const==1&&ST==2&&vel<min then conAct else nc;
+const2acc action {in_acc=1, in_const=0};
+
+Clock go_constS;
+
+left2const is if in_left==1 then go_constS else nc;
+left2const action {in_left=0, in_const=1};
+
+right2const is if in_right==1 then go_constS else nc;
+right2const action {in_right=0, in_const=1};
+
+DenseClockType decT{
+	reference idealClk,
+	factor in_dec,
+	offset {},
+	reset  {const2dec}
+};
+
+//behaviors in dec state 
+Clock dect:decT;
+
+Clock decTrig;
+decTrig is periodicOn dect period 1;
+decTrig action {decSpeed()};
+
+```C
+void decSpeed(){
+if(reqT<24){
+     reqT=24;}
+if (reqT>400){
+     reqT=400;}
+
+if(reqT>=24&&reqT<=398){
+   reqT = reqT + 1;
+}  
+if(cnt1>0&&cnt1%400==0){
+gearDown();
+}
+if(reqG > 5){
+      reqG = 5;}
+if(cnt1>=1800){
+cnt1=0;
+}
+}
+```;
+
+Clock dec2stop, acc2stop, stop2acc, left2stop, right2stop;
+
+
+DenseClockType accT{
+	reference idealClk,
+	factor in_acc,
+	offset {},
+	reset  {const2acc, stop2acc}
+};
+
+//behaviors in acc state 
+Clock acct:accT;
+Clock accTrig;
+accTrig is periodicOn acct period 1;
+accTrig action {accSpeed(), cnt2++};
+
+```C
+int cnt2;
+void accSpeed(){
+if(cnt2>0&&cnt2%400==0){
+gearUp();
+}
+if(reqT>=24&&reqT<=400){
+   reqT = reqT - 1;
+  }
+if(reqT<24){
+     reqT=24;}
+if(reqT>400){
+     reqT=400;}
+if(reqG> 5){
+      reqG = 5;}
+  
+if(cnt2>=1800){
+  cnt2=0;
+  } 
+}
+
+```;
+
+dec2const is if in_dec==1&&vel<max&&conExe==1 then ac else nc;
+dec2const action {in_dec=0, in_const=1};
+
+acc2const is if in_acc==1&&vel>min&&conExe==1 then ac else nc;
+acc2const action {in_acc=0, in_const=1};
+
+Clock rightTrig, leftTrig;
+
+// DenseClockType rightT{
+	// reference idealClk,
+	// factor in_right,
+	// offset  {},
+	// reset   {const2right}
+// };
+// Clock rightt:rightT;
+
+// rightTrig is periodicOn rightt period 1;
+
+// DenseClockType leftT{
+	// reference idealClk,
+	// factor in_left,
+	// offset  {},
+	// reset   {enterLeft}
+// };
+// Clock leftt:leftT;
+// leftTrig is periodicOn leftt period 1;
+
+// Clock enterConst1, enterConst2; 
+// enterConst1 is dec2const clockUnion acc2const;
+// enterConst2 is right2const clockUnion left2const;
+// enterConst is enterConst1 clockUnion enterConst2;
+// enterConst action {enter_constS(), in_const=1};
+
+dec2stop is if in_dec==1&&ST==5 then conAct else nc;
+acc2stop is if in_acc==1&&ST==5 then conAct else nc;
+left2stop is if in_left==1&&ST==5 then conAct else nc;
+right2stop is if in_right==1&&ST==5 then conAct else nc;
+stop2acc is if in_stop==1&&ST==2&&vel<min then conAct else nc;
+
+// Clock enterStop1, enterStop2, enterStop3;
+// enterStop1 is right2stop clockUnion left2stop;
+// enterStop2 is enterStop1 clockUnion acc2stop;
+// enterStop3 is enterStop2 clockUnion dec2stop;
+// enterStop is  enterStop3 clockUnion const2stop;
+// enterStop action {in_stop=1};
+// Clock exitStop;
+// exitStop is if true then stop2acc else nc;
+// exitStop action {in_stop=0};
+
+// Clock exitAcc;
+// enterAcc is const2acc clockUnion stop2acc;
+// enterAcc action {in_acc=1};
+// exitAcc is acc2const clockUnion acc2stop;
+// exitAcc action {in_acc=0};
+
+// Clock exitDec;
+// exitDec is dec2const clockUnion dec2stop;
+// exitDec action {in_dec=0};
+
+// Clock exitRight, exitLeft;
+// exitRight is right2const clockUnion right2stop;
+
+// exitLeft is left2const clockUnion left2stop;
+// exitLeft action {in_left=0};
+
+//===========================Behavior of Stop=============================
+Clock startBrake;
+
+```C
+int stop_ini=1, in_braking, in_static;
+```;
+
+go_static action {stop_ini=0, brake=0, in_static=1};
+
+startBrake is if stop_ini==1&&conExe==1&&in_stop==1 then ac else nc;
+startBrake action {stop_ini=0, reqT=400, reqG=1, brake=1, in_braking=1, brake_rate=2.0};
+
+Clock brake2static;
+brake2static is if in_braking==1&&vel<=0&&conExe==1 then ac else nc;
+brake2static action {in_braking=0, in_static=1, brake_rate=0.0};
+stop2acc action {in_stop=0, in_acc=1, brake=0, stop_ini=1, in_braking=0, in_static=0, brake_rate=0.0};
+
+
+//========================Behavior of TurnLeft=======================
+```C
+int left_ini=1, left_SpeedDown, left_Turn, left_SpeedUp;
+```;
+const2left action {cnt1=0, decnt=0, left_ini=0, cuposx=posx, cuposy=posy, left_SpeedDown=1};
+
+// DenseClockType l_sdT{
+	// reference idealClk,
+	// factor left_SpeedDown,
+	// offset {},
+	// reset {left2const, left2stop}
+// };
+// Clock l_sdt:l_sdT;
+
+//Clock left_fre, left_sd;
+//left_fre is periodicOn l_sdt period 1;
+//left_sd is if left_SpeedDown==1&&ready2Turn()==false then left_fre else nc;
+//use ite and ac to check ready2turn?
+
+//left_sd action {decnt++};
+Clock startTurnLeft;
+startTurnLeft is if left_SpeedDown==1&&ready2Turn()==true then ac else nc; 
+startTurnLeft action {cnt=0, left_Turn=1, left_SpeedDown=0};
+
+Clock leftturn2ini, leftturn2su;
+leftturn2ini is if left_Turn==1 then left2stop else nc;
+leftturn2ini action {turnReq(1,0), left_Turn=0, left_ini=1};
+leftturn2su is startTurnLeft delayFor [ 10, 20 ] on tu;
+leftturn2su action {turnReq(1,0), left_Turn=0, left_SpeedUp=1};
+
+```C
+bool ready2Turn(){
+if(conDir==1)//current direction is positive y-axis
+{
+if(posy-cuposy>=50&&posy-cuposy<=100){ //the vehicle should turn within 5-10 meters distance
+return true;
+}
+return false;
+}
+
+if(conDir==3)//current direction is negative y-axis
+{
+if(cuposy-posy>=50&&cuposy-posy<=100){
+return true;
+}
+return false;
+}
+if(conDir==2)//current direction is positive x-axis
+{
+if(posx-cuposx>=50&&posx-cuposx<=100){ //the vehicle should turn within 5-10 meters distance
+return true;
+}
+return false;
+}
+
+if(conDir==4)//current direction is negative x-axis
+{
+if(cuposx-posx>=50&&cuposx-posx<=100){
+return true;
+}
+return false;
+}
+
+return false;
+}
+
+
+void  turnReq( int left, int right){
+conLeft=left;
+conRight=right;
+turnx = PX;
+turny = PY;
+}
+```;
+
+//Clock completeTurn;
+//after turning, accelerate for a certain time
+Clock rightturn2ini, rightturn2su;
+
+go_constS is leftturn2su delayFor [ 10, 20 ] on tu;
+go_constS is rightturn2su delayFor [ 10, 20 ] on tu;
+//completeTurn is if true then go_constS else nc;
+go_constS action {right_SpeedUp=0, right_ini=1, left_SpeedUp=0, left_ini=1};
+//exitLeft action {in_left=0, left_SpeedDown=0, left_SpeedUp=0, left_ini=1};
+
+
+//=================================Behavior of TurnRight==========================================
+```C
+int right_ini=1, right_SpeedDown, right_Turn, right_SpeedUp;
+```;
+
+const2right action {right_ini=0, right_SpeedDown=1, r_cnt1=0, r_decnt=0, cuposx=posx, cuposy=posy};
+
+// DenseClockType r_sdT{
+	// reference idealClk,
+	// factor right_SpeedDown,
+	// offset {},
+	// reset {right2const, right2stop}
+// };
+// Clock r_sdt:r_sdT;
+//Clock right_fre, right_sd;
+//right_fre is periodicOn r_sdt period 1;
+//right_sd is if right_SpeedDown==1&&ready2Turn()==false then right_fre else nc;
+//right_sd action {r_decnt++};
+
+Clock startTurnRight;
+
+startTurnRight is if right_SpeedDown==1&&ready2Turn()==true then ac else nc; 
+startTurnRight action {cnt=0, right_Turn=1, right_SpeedDown=0};
+
+rightturn2ini is if right_Turn==1 then right2stop else nc;
+rightturn2ini action {turnReq(0, 1), right_Turn=0, right_ini=1};
+rightturn2su is startTurnRight delayFor [ 10, 20 ] on tu;
+rightturn2su action {turnReq(0, 1), right_Turn=0, right_SpeedUp=1};
+
+
+//exitRight action {in_right=0, right_SpeedDown=0, right_SpeedUp=0, right_ini=1};
+
+
+//===============================Behavior of Actuator==============================================
+```C 
+bool actr_in[4];
+```;
+
+con_gear action {acGear=reqG, actr_in[0]=1};
+con_torq action {acTorq=reqT, actr_in[1]=1};
+con_brake action {acBrake= brake, actr_in[2]=1};
+con_dir action {acLeft=conLeft, acRight=conRight, eFinTurn=finTurn, actr_in[3]=1};
+Clock actrAct, actrIdle, actrFin;
+actrAct is if actr_in[0]&&actr_in[1]&&actr_in[2]&&actr_in[3] then ac else nc;
+actrAct action {actr_in[0]=0, actr_in[1]=0, actr_in[2]=0, actr_in[3]=0};
+actrIdle is actrAct delayFor [ 3, 5 ]  on tu;
+
+```C
+int actr_out[4];
+```;
+
+//Clock actr_out1, actr_out2, actr_out3, actr_out4;
+Clock ac_gearc, ac_torqc, ac_brakec, ac_dirc;
+ac_gearc is if true then actrIdle else nc;
+ac_gearc action {env_gear= acGear};
+
+ac_torqc is ac_gearc delayFor [ 0, 1 ] on tu;
+ac_torqc action {env_torq= acTorq};
+
+ac_brakec is ac_gearc delayFor [ 0, 1 ] on tu;
+ac_brakec action {B= acBrake};
+
+ac_dirc is ac_gearc delayFor [ 0, 1 ] on tu;
+ac_dirc action {leftReq = acLeft, rightReq = acRight};
+
+//ac_gearc is if actr_out[0]==1 then actr_out1 else nc;
+//ac_torqc is if actr_out[0]==2 then actr_out1 else nc;
+//ac_brakec is if actr_out[0]==3 then actr_out1 else nc;
+//ac_dirc is if actr_out[0]==4 then actr_out1 else nc;
+Clock infIn1, infIn2, infIn, supIn1, supIn2, supIn;
+infIn1 is sen_dirc inf sen_speedc;
+infIn2 is infIn1 inf sen_posc;
+infIn is infIn2 inf SR_signtype;
+supIn1 is sen_dirc sup sen_speedc;
+supIn2 is supIn1 sup sen_posc;
+supIn is supIn2 sup SR_signtype;
+Clock infInDe40;
+infInDe40 is infIn delayFor [ 4, 4 ] on tu;
+causes(p=0.95,infIn, supIn, infInDe40);
+
+
+
+
+
+
+

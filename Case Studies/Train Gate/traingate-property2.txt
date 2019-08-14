@@ -1,0 +1,421 @@
+Clock appr[3], stop[3], leave[3], go[3];
+
+```C
+int cal[3]={0,0,0};
+```;
+
+//===========================distance calculation===========================
+Clock tu:IdealClock;
+
+DenseClockType Dis0{
+reference idealClk,
+factor    vel0*cal[0],
+offset    {},
+reset     {appr[0], leave[0]}
+};
+Clock dis0:Dis0;
+
+DenseClockType Dis1{
+reference idealClk,
+factor    vel1*cal[1],
+offset    {},
+reset     {appr[1], leave[1]}
+};
+Clock dis1:Dis1;
+
+DenseClockType Dis2{
+reference idealClk,
+factor    vel2*cal[2],
+offset    {},
+reset     {appr[2], leave[2]}
+};
+Clock dis2:Dis2;
+
+Clock nc:Never;
+Clock ac:Always;
+Clock sec:IdealClock;
+
+//======================Behavior of three trains============================= 
+Clock appr2cross[3], appr2stop[3], stop2start[3], start2cross[3];
+```C
+int in_safe[3]={1, 1, 1}, in_appr[3], in_stop[3], in_start[3], in_cross[3];
+int appTrain=0;
+```;
+Clock appTrig;
+appTrig is if in_safe[0]==1||in_safe[1]==1||in_safe[2]==1 then ac else nc;
+appTrig pAction {(0.33, {appTrain=0}), (0.33, {appTrain=1}),(0.33, {appTrain=2})};
+
+appr[0] is if in_safe[0]==1&&appTrain==0 then ac else nc;
+appr[1] is if in_safe[1]==1&&appTrain==1 then ac else nc;
+appr[2] is if in_safe[2]==1&&appTrain==2 then ac else nc;
+
+appr[0] action {cal[0]=1, in_safe[0]=0, in_appr[0]=1};
+appr[1] action {cal[1]=1, in_safe[1]=0, in_appr[1]=1};
+appr[2] action {cal[2]=1, in_safe[2]=0, in_appr[2]=1};
+
+Clock a2c[3];
+
+a2c[0] is appr[0] delayFor [ 10, 20 ] on tu;
+appr2cross[0] is if in_appr[0]==1&&in_cross[1]==0&&in_cross[2]==0 then a2c[0] else nc;
+appr2cross[0] action {in_appr[0]=0, in_cross[0]=1};
+
+a2c[1] is appr[1] delayFor [ 10, 20 ] on tu;
+appr2cross[1] is if in_appr[1]==1&&in_cross[0]==0&&in_cross[2]==0 then a2c[1] else nc;
+appr2cross[1] action {in_appr[1]=0, in_cross[1]=1};
+
+a2c[2] is appr[2] delayFor [ 10, 20 ] on tu;
+appr2cross[2] is if in_appr[2]==1&&in_cross[1]==0&&in_cross[0]==0 then a2c[2] else nc;
+appr2cross[2] action {in_appr[2]=0, in_cross[2]=1};
+
+DenseClockType apprT0{
+	reference idealClk,
+	factor in_appr[0],
+	offset {},
+	reset  {appr[0], appr2cross[0]}
+};
+Clock apprt0:apprT0;
+
+DenseClockType apprT1{
+	reference idealClk,
+	factor in_appr[1],
+	offset {},
+	reset  {appr[1], appr2cross[1]}
+};
+Clock apprt1:apprT1;
+
+
+DenseClockType apprT2{
+	reference idealClk,
+	factor in_appr[2],
+	offset {},
+	reset  {appr[2], appr2cross[2]}
+};
+Clock apprt2:apprT2;
+
+appr2stop[0] is if apprt0<=10&&in_appr[0]==1 then stop[0] else nc;
+appr2stop[0] action {in_appr[0]=0, in_stop[0]=1};
+
+appr2stop[1] is if apprt1<=10&&in_appr[1]==1 then stop[1] else nc;
+appr2stop[1] action {in_appr[1]=0, in_stop[1]=1};
+
+appr2stop[2] is if apprt2<=10&&in_appr[2]==1 then stop[2] else nc;
+appr2stop[2] action {in_appr[2]=0, in_stop[2]=1};
+
+stop2start[0] is if in_stop[0]==1 then go[0] else nc;
+stop2start[1] is if in_stop[1]==1 then go[1] else nc;
+stop2start[2] is if in_stop[2]==1 then go[2] else nc;
+
+stop2start[0] action {in_stop[0]=0, in_start[0]=1};
+stop2start[1] action {in_stop[1]=0, in_start[1]=1};
+stop2start[2] action {in_stop[2]=0, in_start[2]=1};
+
+start2cross[0] is if in_start[0]==1&&dis0>=300 then ac else nc; 
+start2cross[0] action {in_start[0]=0, in_cross[0]=1};
+
+start2cross[1] is if in_start[1]==1&&dis1>=300 then ac else nc; 
+start2cross[1] action {in_start[1]=0, in_cross[1]=1};
+
+start2cross[2] is if in_start[2]==1&&dis2>=300 then ac else nc; 
+start2cross[2] action {in_start[2]=0, in_cross[2]=1};
+
+leave[0] is if in_cross[0]==1&&dis0>=800 then ac else nc; 
+leave[0] action {in_cross[0]=0, in_safe[0]=1};
+ 
+leave[1] is if in_cross[1]==1&&dis1>=800 then ac else nc; 
+leave[1] action {in_cross[1]=0, in_safe[1]=1};
+ 
+leave[2] is if in_cross[2]==1&&dis2>=800 then ac else nc; 
+leave[2] action {in_cross[2]=0, in_safe[2]=1};
+
+//Behavior of three SpeedSensors
+Clock cal2idle[3], idle2cal[3];
+```C
+int in_cal[3]={1, 1, 1}, in_idle[3];
+```;
+
+DenseClockType calT0{
+	reference idealClk,
+	factor    in_cal[0],
+	offset    {},
+	reset     {stop[0]}
+};
+
+Clock calt0:calT0;
+
+DenseClockType calT1{
+	reference idealClk,
+	factor    in_cal[1],
+	offset    {},
+	reset     {stop[1]}
+};
+
+Clock calt1:calT1;
+
+
+DenseClockType calT2{
+	reference idealClk,
+	factor    in_cal[2],
+	offset    {},
+	reset     {stop[2]}
+};
+
+Clock calt2:calT2;
+
+Clock calFre[3];
+calFre[0] is periodicOn calt0 period 1;
+calFre[0] action {updateAcc(0)};
+
+calFre[1] is periodicOn calt1 period 1;
+calFre[1] action {updateAcc(1)};
+
+calFre[2] is periodicOn calt2 period 1;
+calFre[2] action {updateAcc(2)};
+
+```C
+int lower=20, upper=25;
+double acc[3];
+```;
+Clock idleTrig[3];
+
+Clock initClk;
+
+DenseClockType VEL0{
+	reference idealClk,
+	factor acc[0],
+	offset {(initClk, 10.0)},
+	reset  {idle2cal[0], idleTrig[0]}
+};
+Clock vel0:VEL0;
+
+DenseClockType VEL1{
+	reference idealClk,
+	factor acc[1],
+	offset {(initClk, 10.0)},
+	reset  {idle2cal[1], idleTrig[1]}
+};
+Clock vel1:VEL1;
+
+```C
+int fire=1;
+```;
+
+initClk is if fire==1 then ac else nc;
+initClk action {fire=0};	
+
+DenseClockType VEL2{
+	reference idealClk,
+	factor acc[2],
+	offset {(initClk, 10.0)},
+	reset  {idle2cal[2], idleTrig[2]}
+};
+Clock vel2:VEL2;
+
+
+```C
+void updateAcc(int id){	
+if(id==0&&floor(vel0)<lower){
+acc[0]=1.25;
+}
+if(id==1&&floor(vel1)<lower){
+acc[1]=1.25;
+}
+if(id==2&&floor(vel2)<lower){
+acc[2]=1.25;
+}
+else if(id==0&&ceil(vel0)>upper){
+acc[0]=-0.5;
+}
+else if(id==1&&ceil(vel1)>upper){
+acc[1]=-0.5;
+}
+else if(id==2&&ceil(vel2)>upper){
+acc[2]=-0.5;
+}
+}
+
+int list[40];
+```;
+
+cal2idle[0] is if in_cal[0]==1 then stop[0] else nc;
+cal2idle[0] action {acc[0]=-2.5, in_cal[0]=0, in_idle[0]=1};
+
+cal2idle[1] is if in_cal[1]==1 then stop[1] else nc;
+cal2idle[1] action {acc[1]=-2.5, in_cal[1]=0, in_idle[1]=1};
+
+cal2idle[2] is if in_cal[2]==1 then stop[2] else nc;
+cal2idle[2] action {acc[2]=-2.5, in_cal[2]=0, in_idle[2]=1};
+
+idleTrig[0] is if in_idle[0]==1&&vel0<=0 then ac else nc; 
+idleTrig[0] action {acc[0]=0};
+
+idleTrig[1] is if in_idle[1]==1&&vel1<=0 then ac else nc;
+idleTrig[1] action {acc[1]=0};
+
+idleTrig[2] is if in_idle[2]==1&&vel2<=0 then ac else nc;
+idleTrig[2] action {acc[2]=0};
+
+idle2cal[0] is if in_idle[0]==1 then go[0] else nc;
+idle2cal[1] is if in_idle[1]==1 then go[1] else nc;
+idle2cal[2] is if in_idle[2]==1 then go[2] else nc;
+
+idle2cal[0] action {acc[0]=1.25, in_idle[0]=0, in_cal[0]=1};
+idle2cal[1] action {acc[1]=1.25, in_idle[1]=0, in_cal[1]=1};
+idle2cal[2] action {acc[2]=1.25, in_idle[2]=0, in_cal[2]=1};
+
+//=============================Behavior of Environment===============================
+
+
+```C
+const int sunny=0, windy=1, rainy=2, foggy=3,snowy=4;
+int weather=sunny; 
+void updateLimit(){
+if(weather==sunny){
+upper=25;
+lower=20;
+}
+else if(weather==windy){
+upper=20;
+lower=18;
+}
+else if(weather==rainy){
+upper=18;
+lower=15;
+}
+else if(weather==foggy){
+upper=15;
+lower=12;
+}
+else if(weather==snowy){
+upper=12;
+lower=10;
+}
+}
+```;
+
+Clock envTrig; 
+Clock envt:IdealClock;
+
+envTrig is if envt>=100 then ac else nc;
+envTrig pAction {(0.60, {weather=sunny}),  (0.10,{weather=windy}), (0.10, {weather=rainy}), (0.10, {weather=foggy}), (0.10,  {weather=snowy})};
+envTrig action {envt=0, updateLimit()};
+
+//=============================Behavior of Gate controller===========================
+
+```C
+int len;
+void enqueue(int element)
+{
+	    len++;
+        list[len] = element;
+}
+
+// Remove the front element of the queue
+void dequeue()
+{
+        int i = 1;
+        len -= 1;
+        while (i <= len)
+        {
+                list[i] = list[i + 1];
+                i++;
+        }
+        list[i] = 0;
+}
+
+// Returns the front element of the queue
+int front()
+{
+   return list[1];
+}
+
+// Returns the last element of the queue
+int tail()
+{
+   return list[len];
+}
+
+int in_free=1, in_occ, in_deq, in_enq;
+```;
+
+Clock free2occ[3], occ2free[3];
+//those event can happen at the same time
+//==> mutual exclusion is violated 
+
+
+//Clock freeTrig;
+
+//freeTrig is if len==0&&in_free==1 then ac else nc;
+//freeTrig pAction {(0.33, {ctrain=0}), (0.33, {ctrain=1}), (0.33, {ctrain=2})};
+//free2occ[0] is if len==0&&in_free==1&&ctrain==0 then appr[0] else nc;
+free2occ[0] is if len==0&&in_free==1 then appr[0] else nc;
+free2occ[0] action {enqueue(1), in_free=0, in_occ=1};
+
+free2occ[1] is if len==0&&in_free==1 then appr[1] else nc;
+free2occ[1] action {enqueue(2), in_free=0, in_occ=1};
+
+free2occ[2] is if len==0&&in_free==1 then appr[2] else nc;
+free2occ[2] action {enqueue(3), in_free=0, in_occ=1};
+
+//how to send the stop signal to stop the trains
+//Clock occTrig;
+//occTrig is if in_occ==1 then ac else nc;
+//occTrig pAction {(0.33, {ctrain=0}), (0.33, {ctrain=1}), (0.33, {ctrain=2})};
+
+Clock occ2deq[3], occ2enq[3];
+
+//occ2enq[0] is if in_occ==1 then appr[0] else nc;
+stop[0] is if in_free==0 then appr[0] else nc;
+stop[0] action {enqueue(1)};
+
+//stop[0] is if in_enq==1&&tail()==1 then ac else nc;
+//stop[0] action {in_enq=0, in_occ=1};
+
+stop[1] is if in_free==0 then appr[1] else nc;
+stop[1] action {enqueue(2)};
+//stop[1] is if in_enq==1&&tail()==2 then ac else nc;
+//stop[1] action {in_enq=0, in_occ=1};
+
+stop[2] is if in_free==0 then appr[2] else nc;
+stop[2] action {enqueue(3)};
+//stop[2] is if in_enq==1&&tail()==3 then ac else nc;
+//stop[2] action {in_enq=0, in_occ=1};
+
+occ2deq[0] is if in_occ==1&&front()==1&&len>1 then leave[0] else nc;
+occ2deq[1] is if in_occ==1&&front()==2&&len>1 then leave[1] else nc;
+occ2deq[2] is if in_occ==1&&front()==3&&len>1 then leave[2] else nc;
+
+occ2deq[0] action {dequeue(), in_occ=0, in_deq=1};
+occ2deq[1] action {dequeue(), in_occ=0, in_deq=1};
+occ2deq[2] action {dequeue(), in_occ=0, in_deq=1};
+
+go[0] is if in_deq==1&&front()==1 then ac else nc;
+go[0] action {in_deq=0, in_occ=1};
+
+go[1] is if in_deq==1&&front()==2 then ac else nc;
+go[1] action {in_deq=0, in_occ=1};
+
+go[2] is if in_deq==1&&front()==3 then ac else nc;
+go[2] action {in_deq=0, in_occ=1};
+
+occ2free[0] is if in_occ==1&&front()==1&&len==1 then leave[0] else nc;
+occ2free[0] action {dequeue(), in_occ=0, in_free=1};
+
+occ2free[1] is if in_occ==1&&front()==2&&len==1 then leave[1] else nc;
+occ2free[1] action {dequeue(), in_occ=0, in_free=1};
+
+occ2free[2] is if in_occ==1&&front()==3&&len==1 then leave[2] else nc;
+occ2free[2] action {dequeue(), in_occ=0, in_free=1};
+
+
+Clock infClk1, infClk2, supClk1, supClk2, de;
+Clock p2_tu:IdealClock;
+
+
+de is appr[0] delayFor [ 300,300 ] on p2_tu;
+leave[0] causes(p=0.96) de;
+
+
+
+
+
+
